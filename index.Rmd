@@ -1,0 +1,29 @@
+---
+title: "Causal Inference in Education"
+book_filename: "causal inference"
+author: "Anthony Schmidt"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+site: bookdown::bookdown_site
+documentclass: book
+output:
+  bookdown::gitbook:
+    config:
+      toc:
+        toc_depth: 5
+        collapse: null
+        scroll_highlight: yes
+  #bookdown::pdf_book: default
+
+# use this to publish
+# bookdown::publish_book(name = "causal_inf", account = "aschmi11",
+# +                        server = NULL, render = c("none", "local", "server"))
+---
+
+# What is this book?
+
+It is an R-based exercise book related to the following three **causal inference** texts:
+
+
+  * Murnane, R. J., & Willett, J. B. (2010). *Methods matter: Improving causal inference in educational and social science research*. Oxford University Press.
+* Gertler, P. J., Martinez, S., Premand, P., Rawlings, L. B., & Vermeersch, C. M. (2016). *Impact evaluation in practice*. The World Bank.
+* Angrist, J. D., & Pischke, J. S. (2008). *Mostly harmless econometrics: An empiricist's companion*. Princeton University Press.
