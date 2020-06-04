@@ -4,15 +4,6 @@
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r message=FALSE, warning=FALSE}
-library(tidyverse)
-library(knitr)
-library(haven)
-library(psych)
-library(apaTables)
-library(gt)
-```
-
 
 ## New York Scholarship Program
 
@@ -28,14 +19,62 @@ The data examines a subset of African-American students from the 1997 New York S
   * pre_ach: reading achievement score before getting a voucher
   * post_ach: reading achivemenet score at year 3
   
-### Descriptive Statistics
-```{r message=FALSE, warning=FALSE}
-nysp_vouchers <- read_dta("data/methods_matter/ch4_nyvoucher.dta")
+### Setup
 
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(haven)
+library(psych)
+library(apaTables)
+library(gt)
+```
+
+```{r message=FALSE, warning=FALSE}
+#load data
+nysp_vouchers <- read_dta("data/methods_matter/ch4_nyvoucher.dta")
+```
+
+```{r message=FALSE, warning=FALSE}
+# function to make apa tables
+apa <- function(x) {
+  gt(x) %>%
+  tab_options(
+    table.border.bottom.width = 3,
+    table.border.bottom.color = "black",
+    column_labels.border.top.color = "black",
+        column_labels.border.bottom.color = "black",
+    table.width = pct(100),
+    table.background.color = "white"
+  ) %>%
+  cols_align(align="center") %>%
+  tab_style(
+    style = list(
+      cell_borders(
+        sides = c("top", "bottom"),
+        color = "white",
+        weight = px(1)
+      ),
+      cell_text(
+        align="center"
+      ),
+      cell_fill(color = "white", alpha = NULL)
+      ),
+    locations = cells_body(
+      columns = everything(),
+      rows = everything()
+    )
+  )
+}
+
+```
+
+### Descriptive Statistics
+
+```{r, descriptives}
 describe(nysp_vouchers) %>%
   mutate(across(is.numeric, round, 3)) %>%
   select(-mad, -min, -max, -range, -trimmed) %>%
-  kable()
+  apa()
 ```
 
 ```{r message=FALSE, warning=FALSE}
@@ -52,7 +91,7 @@ rbind(nysp_vouchers %>%
             mean = mean(post_ach),
             "std. err." = sd(post_ach)/sqrt(n()),
             sd = sd(post_ach))) %>%
-  kable()
+  apa()
 
 ```
 
@@ -67,9 +106,10 @@ rbind(nysp_vouchers %>%
 mm4_t <- t.test(nysp_vouchers$post_ach ~ nysp_vouchers$voucher, var.equal = T)
 
 broom::tidy(mm4_t) %>%
+  mutate(across(is.numeric, round, 3)) %>%
   rename("no voucher" = estimate1,
          "voucher" = estimate2) %>%
-  kable()
+  apa()
 ```
 
 ### Simple Linear Regression 
@@ -80,24 +120,15 @@ broom::tidy(mm4_t) %>%
 #model
 mm4_model1 <- lm(post_ach ~ voucher, data=nysp_vouchers)
 
-#table - attempt to use gt package for APA-like table
 apa.reg.table(mm4_model1)[[3]] %>%
-  gt() %>%
-  tab_options(
-    table.border.top.width = 2,
-    table.border.top.color = "black",
-    heading.border.bottom.width = 2,
-    heading.border.bottom.color = "black",
-    row_group.border.bottom.color = NULL,
-    row_group.border.top.color = NULL,
-    table_body.hlines.color = "white"
-  )
+  apa()
 ```
 
 #### Output for variances 
 
 ```{r}
-apa.aov.table(mm4_model1)[[3]] %>% kable()
+apa.aov.table(mm4_model1)[[3]] %>% 
+  apa()
 ```
 
 ### Multiple Linear Regression 
@@ -106,13 +137,13 @@ apa.aov.table(mm4_model1)[[3]] %>% kable()
 
 ```{r, mm4_ols2}
 mm4_model2 <- lm(post_ach ~ voucher + pre_ach, data = nysp_vouchers)
-apa.reg.table(mm4_model2)[[3]] %>% kable()
+apa.reg.table(mm4_model2)[[3]] %>% apa()
 ```
 
 #### Output for variances 
 
 ```{r}
-apa.aov.table(mm4_model2)[[3]] %>% kable()
+apa.aov.table(mm4_model2)[[3]] %>% apa()
 ```
 
 **References**
