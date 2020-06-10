@@ -1,0 +1,241 @@
+# Week 3 - Statistical Power and Sample Size
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(haven)
+source("data/apafunction.R") #for APA-style tables
+
+#load data
+nysp_vouchers <- read_dta("data/methods_matter/ch4_nyvoucher.dta")
+```
+
+
+## Effect Size for T-Test
+
+### T-Test Results
+
+```{r}
+mm4_t <- t.test(nysp_vouchers$post_ach ~ nysp_vouchers$voucher, var.equal = T)
+```
+```{r echo=FALSE}
+broom::tidy(mm4_t) %>%
+  mutate(across(is.numeric, round, 3),
+         `std. err` = mm4_t[["stderr"]]) %>%
+  rename("no voucher" = estimate1,
+         "voucher" = estimate2) %>%
+  select(1:4, 6,7,10) %>%
+  apa("T-Test Results")
+```
+
+### Cohen's *d* effect size for t-test
+
+Using the `effectsize` package:
+
+```{r}
+library(effectsize)
+
+# use cohens_d() from effectsize
+cohens_d(nysp_vouchers$post_ach, as.factor(nysp_vouchers$voucher)) %>%
+  # format into an APA table
+  mutate(across(is.numeric, round, 3)) %>%  #round
+  mutate("95% CI" = paste0("[", CI_low, ", ", CI_high, "]")) %>%   # combine
+  select(Cohens_d, `95% CI`) %>%  # drop columns
+  rename("Cohen's d"= Cohens_d) %>%   # rename
+  apa("Effect size for t-test")
+```
+
+## Calculating Power
+
+Power calculations are based on the `pwr` package and come from [https://www.statmethods.net/stats/power.html](https://www.statmethods.net/stats/power.html).
+
+```{r}
+library(pwr)
+```
+
+### New York Scholarship Program (NYSP) Power Analysis
+
+#### T-Tests
+
+The following calculates power from the NYSP t-test example (Strategy 1, Table 4.1, pg. 49)
+
+
+```{r}
+nysp_power <- pwr.t2n.test(n1 = 230, n2= 291, d = .257, sig.level =0.05, power = )
+```
+```{r echo=FALSE}
+tribble(
+  ~n1, ~n2, ~d, ~sig, ~power,
+   nysp_power[["n1"]], nysp_power[["n2"]], nysp_power[["d"]], nysp_power[["sig.level"]], nysp_power[["power"]]
+) %>%
+  apa("Power of the NYSP Voucher T-Test")
+
+```
+
+#### Simple Linear Regression
+
+Recall Strategy 2, Table 4.1, pg. 49):
+
+```{r, mm4_ols}
+#model
+mm4_model1 <- lm(post_ach ~ voucher, data=nysp_vouchers)
+```
+```{r echo=FALSE}
+apa.reg.table(mm4_model1)[[3]] %>%
+  apa("Simple Linear Regression")
+apa.aov.table(mm4_model1)[[3]] %>% 
+  apa("ANOVA Table for Simple Linear Regresion")
+```
+
+##### Power for NYSP Simple Linear Regression
+
+Use `pwr.f2.test(u =, v = , f2 = , sig.level = , power = )` where,
+
+  * u = numerator or *df* of predictors (e.g. number of predictors)
+  * v = denominator or *df* for the residual
+  * f2 = an effect size
+
+Based on the regression results, the NYSP simple linear regression model had the following power:
+
+```{r}
+nysp_regpower <- pwr.f2.test(u = 1, v = 519, f2 = .016, sig.level = .05, power = )
+```
+```{r echo=FALSE}
+tribble(
+  ~Predictors, ~"Residual df", ~r2, ~sig, ~power,
+   nysp_regpower[["u"]], nysp_regpower[["v"]], nysp_regpower[["f2"]], nysp_regpower[["sig.level"]], nysp_regpower[["power"]]
+) %>%
+  apa("Power of the NYSP Voucher Simple Linear Regression Test")
+```
+
+##### Power for NYSP Multiple Regression
+
+(Strategy 3, Table 4.1, pg 49)
+
+```{r, mm4_ols2}
+mm4_model2 <- lm(post_ach ~ voucher + pre_ach, data = nysp_vouchers)
+apa.reg.table(mm4_model2)[[3]] %>% apa()
+apa.aov.table(mm4_model2)[[3]] %>% apa()
+```
+
+
+Based on the regression results, the NYSP multiple  regression model had the following power:
+
+```{r}
+nysp_regpower_2 <- pwr.f2.test(u = 2, v = 518, f2 = .442, sig.level = .05, power = )
+```
+```{r echo=FALSE}
+tribble(
+  ~Predictors, ~"Residual df", ~r2, ~sig, ~power,
+   nysp_regpower_2[["u"]], nysp_regpower_2[["v"]], nysp_regpower_2[["f2"]], nysp_regpower_2[["sig.level"]], nysp_regpower_2[["power"]]
+) %>%
+  apa("Power of the NYSP Voucher Multiplle Regression Test")
+```
+
+> Does this power of 1 seem too higher?
+
+
+<!-- #### Estimating Power -->
+
+<!-- Given sample sizes of 200 and 1000, what is the power to detect an effect of .3 or .5? -->
+
+
+
+<!-- ```{r} -->
+
+<!-- nysp_pwr_200_3 <- pwr.t.test(n = 200, d = .3, sig.level = .05, power = , type ="two.sample") -->
+<!-- nysp_pwr_1000_3 <- pwr.t.test(n = 1000, d = .3, sig.level = .05, power = , type ="two.sample") -->
+<!-- nysp_pwr_200_5 <- pwr.t.test(n = 200, d = .5, sig.level = .05, power = , type ="two.sample") -->
+<!-- nysp_pwr_1000_5 <- pwr.t.test(n = 1000, d = .5, sig.level = .05, power = , type ="two.sample") -->
+<!-- ``` -->
+<!-- ```{r echo=FALSE} -->
+<!-- tribble( -->
+<!--   ~d, ~"n per group", ~power, -->
+<!--    .3, 100, nysp_pwr_200_3[["power"]], -->
+<!--   .3, 500, nysp_pwr_1000_3[["power"]], -->
+<!--   .5, 100, nysp_pwr_200_5[["power"]], -->
+<!--   .5, 500, nysp_pwr_1000_5[["power"]] -->
+<!-- ) %>% -->
+<!--   apa("Power to detect effects at group sample sizes of 100 and 500 (total 200 and 1000)") -->
+
+<!-- ``` -->
+
+<!-- #### Sample Size Calculations for a T-Test -->
+
+<!-- To achieve an effect size of at least .30, with an $\alpha$ of .05, and a power of .80, you would need a **sample size** of: -->
+
+<!-- ```{r} -->
+<!-- # power calculation -->
+<!-- nysp_sample_3 <- pwr.t.test(n = , d = .3, sig.level = .05, power = .8, type ="two.sample") -->
+<!-- nysp_sample_5 <- pwr.t.test(n = , d = .5, sig.level = .05, power = .8, type ="two.sample") -->
+<!-- ``` -->
+<!-- ```{r echo=FALSE} -->
+<!-- # table -->
+<!-- tribble( -->
+<!--   ~"n per group", ~d, ~sig, ~power, -->
+<!--   nysp_sample_3[["n"]], nysp_sample_3[["d"]], nysp_sample_3[["sig.level"]], nysp_sample_3[["power"]], -->
+<!--   nysp_sample_5[["n"]], nysp_sample_5[["d"]], nysp_sample_5[["sig.level"]], nysp_sample_5[["power"]] -->
+<!-- ) %>% -->
+<!--   mutate("Total Sample Size" = round(`n per group`*2, 0))  %>% -->
+<!--   relocate(5, .before = 1) %>% -->
+<!--   relocate(3, .before = 1) %>% -->
+<!--   apa("Example Sample Size Requirements at various levels of d") -->
+<!-- ``` -->
+
+<!-- > Why does a higher effect size mean a lower sample size? -->
+
+
+<!-- #### Effect Size Calculations -->
+
+<!-- What effect size will you get at 200, 500, and 800 total sample size given an  $\alpha$ of .05 and power of .80? -->
+
+<!-- ```{r} -->
+<!-- # power calculations -->
+<!-- nysp_es_200 <- pwr.t.test(n = 100, d = , sig.level = .05, power = .8, type ="two.sample") -->
+<!-- nysp_es_500 <- pwr.t.test(n = 250, d = , sig.level = .05, power = .8, type ="two.sample") -->
+<!-- nysp_es_800 <- pwr.t.test(n = 400, d = , sig.level = .05, power = .8, type ="two.sample") -->
+<!-- ``` -->
+<!-- ```{r echo=FALSE} -->
+<!-- # table -->
+<!-- tribble( -->
+<!--   ~"Total Sample Size", ~"Estimated Effect", -->
+<!--   200, nysp_es_200[["d"]], -->
+<!--   500, nysp_es_500[["d"]], -->
+<!--   800, nysp_es_800[["d"]], -->
+<!-- ) %>% -->
+<!--   mutate(across(is.numeric, round, 3)) %>% -->
+<!--   apa("Estimated effect sizes at different total sample sizes") -->
+<!-- ``` -->
+
+
+
+
+<!-- #### Sample Size for Simple Linear Regression -->
+
+<!-- To achieve an effect size of at least .30, with one predictor you would need a sample size of: -->
+
+<!-- ```{r} -->
+<!-- nysp_sample_3_reg <- pwr.f2.test(u = 1, v = , f2 = .30, sig.level = .05, power = .8) -->
+<!-- ``` -->
+
+<!-- ```{r echo=FALSE} -->
+<!-- # table -->
+<!-- tribble( -->
+<!--   ~"Sample Size", ~r2, ~sig, ~power, -->
+<!--   round(nysp_sample_3_reg[["v"]], 0), nysp_sample_3_reg[["f2"]], nysp_sample_3_reg[["sig.level"]], nysp_sample_3_reg[["power"]] -->
+<!-- ) %>% -->
+<!--   apa("Example Sample Size Requirements for an r2 of .3") -->
+<!-- ``` -->
+
+<!-- > !!! Does this power calculation seem correct? -->
+
+<!-- #### Estimaing Effect Size for Simple Linear Regression -->
+
+<!-- ### Multiple Regression -->
+
+<!-- #### Power for Simple Linear Regression -->
+
+<!-- #### Sample Size for Simple Linear Regression -->
+
+<!-- #### Estimating Effect Size for Simple Linear Regression -->
+
+

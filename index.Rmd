@@ -15,8 +15,7 @@ output:
   #bookdown::pdf_book: default
 
 # use this to publish
-# bookdown::publish_book(name = "causal_inf", account = "aschmi11",
-# +                        server = NULL, render = c("none", "local", "server"))
+# bookdown::publish_book(name = "causal_inf", account = "aschmi11", server = NULL, render = c("none", "local", "server"))
 ---
 
 # What is this book?

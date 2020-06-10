@@ -91,12 +91,30 @@ rbind(nysp_vouchers %>%
             mean = mean(post_ach),
             "std. err." = sd(post_ach)/sqrt(n()),
             sd = sd(post_ach))) %>%
-  apa()
+  mutate(across(is.numeric, round, 3)) -> desc
+  
+#differences
+diff_data <- data.frame(voucher = "difference",
+                      obs = " ",
+                      mean = desc$mean[2] - desc$mean[3],
+                      `std. err.` = sqrt(
+(((nysp_vouchers %>% filter(voucher == 1) %>%
+  pull(post_ach) %>% var()) * (nysp_vouchers %>% filter(voucher == 1)  %>% count() %>% pull()-1) +
+  (nysp_vouchers %>% filter(voucher == 0) %>%
+     pull(post_ach) %>% var()) * (nysp_vouchers %>% filter(voucher == 0)  %>% count() %>% pull()-1)) / (nysp_vouchers %>% count() %>% pull())) *
+  ((1/nysp_vouchers %>% filter(voucher == 1)  %>% count() %>% pull())+
+  (1/nysp_vouchers %>% filter(voucher == 0)  %>% count() %>% pull()))
+),
+                      sd = "") %>%
+  rename("std. err." = std..err.)
+                        
+#make a single table
+rbind(desc, diff_data) %>% 
+  mutate(across(is.numeric, round, 3)) %>%
+                      apa()
 
 ```
 
-!!! How to calculate CI for each group?
-!!! How to get SE of the difference?
 
 ### T-Test
 
@@ -106,7 +124,8 @@ rbind(nysp_vouchers %>%
 mm4_t <- t.test(nysp_vouchers$post_ach ~ nysp_vouchers$voucher, var.equal = T)
 
 broom::tidy(mm4_t) %>%
-  mutate(across(is.numeric, round, 3)) %>%
+  mutate(across(is.numeric, round, 3),
+         `std. err` = mm4_t[["stderr"]]) %>%
   rename("no voucher" = estimate1,
          "voucher" = estimate2) %>%
   apa()
