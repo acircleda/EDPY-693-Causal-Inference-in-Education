@@ -1,0 +1,93 @@
+# 3. Random- and Fixed-Effects Models (Week 4 - Part I)
+
+
+**Success for All (SFA) Program**
+
+The following example comes from  Murnane and Willett (2010), chapter 7. The data was originally downloaded from the [UCLA Institute for Digital Research and Education](https://stats.idre.ucla.edu/stata/examples/methods-matter/chapter7/).
+
+The data examines a subset of SFA data which focuses on first graders in their first year in which their school participated in the SFA program. The example focuses on a single outcome, a "Word-Attack" reading test score measured at the end of the first year.
+
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(haven)
+library(psych)
+library(apaTables)
+library(gt)
+source("data/apafunction.R")
+```
+
+```{r message=FALSE, warning=FALSE}
+#load data
+wattack <- read_dta("data/methods_matter/ch7_sfa.dta")
+```
+
+**Variables**:
+
+  * schid: school ID
+  * stuid: student ID
+  * wattack: Word Attack reading score
+  * sfa: treatment = 1, control = 0
+  * ppvt: pretest score
+  * sch_ppvt: school average of ppvt pretest score
+  
+## Descriptive Statistics
+
+### Overall
+
+```{r}
+# get percentiles
+quantiles <- data.frame("Observations" = quantile(wattack$wattack, probs=c(.01,.05,.1,.25,.5,.75,.9,.95,.99))) %>%
+  rownames_to_column("Percentile")
+
+# get top and bottom scores
+obs <- rbind(wattack %>% select(wattack) %>%
+  slice_min(wattack, n=4) %>% head(3) %>%
+  mutate(wattack = as.character(wattack)) %>%
+  rename("Scores" = "wattack") %>%
+    add_row(Scores="Smallest", .before=1),
+  wattack %>% select(wattack) %>%
+  slice_max(wattack, n=4) %>% head(4) %>%
+  mutate(wattack = as.character(wattack)) %>%
+  rename("Scores" = "wattack") %>%
+    add_row(Scores="Largest", .before=1))
+  
+  
+# combine in a nice table
+cbind(quantiles, obs, describe(wattack$wattack) %>% 
+  mutate(variance = var(wattack$wattack)) %>%
+  select(n, mean, sd, variance, skew, kurtosis) %>%
+  pivot_longer(n:kurtosis, names_to = "measure", values_to="statistic") %>%
+  mutate(across(is.numeric, round, 2)) %>%
+  add_row(measure="", statistic=NULL, .before=1) %>%
+  add_row(measure="", statistic=NULL, .before=1) %>%
+  add_row(measure="", statistic=NULL, .before=1)) %>%
+  mutate(statistic = ifelse(is.na(statistic), "", statistic)) %>%
+  apa('Descriptive statistics for Word-Attack scores')
+```
+
+> Why are kurtosis scores different?
+> UCLA states: "Notice the floor effect which cannot be resolved by a straightforward transformation." What does this mean?
+
+### Box Plot of Word Attack Scores
+```{r fig.width=6, height=6}
+wattack %>%
+  ggplot(aes(wattack)) +
+  coord_flip()+
+  geom_boxplot()+
+  expand_limits(y=c(-.8,.8))
+```
+
+### Descriptive Statistics of Word Attack Score by School
+
+```{r}
+wattack %>%
+  group_by(schid) %>%
+  summarize(mean = mean(wattack),
+            sd = sd(wattack),
+            min = min(wattack),
+            max = max(wattack),
+            "Freq." = n()) %>%
+  rename("School ID" = schid) %>%
+  apa("Descriptive statistics of Word Attack score by school")
+```

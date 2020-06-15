@@ -9,8 +9,8 @@ output:
     number_sections: false
     config:
       toc:
-        toc_depth: 5
-        collapse: null
+        toc_depth: 3
+        collapse: section
         scroll_highlight: yes
   #bookdown::pdf_book: default
 
