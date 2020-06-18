@@ -7,6 +7,11 @@ The following example comes from  Murnane and Willett (2010), chapter 7. The dat
 
 The data examines a subset of SFA data which focuses on first graders in their first year in which their school participated in the SFA program. The example focuses on a single outcome, a "Word-Attack" reading test score measured at the end of the first year.
 
+## Key Concepts
+
+  * Random-Effects Model
+  * Intraclass Correlation
+  * Fixed-Effects Model
 
 ```{r message=FALSE, warning=FALSE}
 library(tidyverse)
@@ -69,7 +74,7 @@ cbind(quantiles, obs, describe(wattack$wattack) %>%
 > Why are kurtosis scores different?
 > UCLA states: "Notice the floor effect which cannot be resolved by a straightforward transformation." What does this mean?
 
-### Box Plot of Word Attack Scores
+#### Box Plot of Word Attack Scores (overall)
 ```{r fig.width=6, height=6}
 wattack %>%
   ggplot(aes(wattack)) +
@@ -89,5 +94,445 @@ wattack %>%
             max = max(wattack),
             "Freq." = n()) %>%
   rename("School ID" = schid) %>%
-  apa("Descriptive statistics of Word Attack score by school")
+  head(n=5) %>% #show only 5
+  apa("Descriptive statistics of Word Attack score by school (first 5 schools)")
 ```
+
+```{r}
+wattack %>%
+  ggplot(aes(wattack, y=as.factor(schid))) +
+  coord_flip()+
+  geom_boxplot()
+
+
+```
+
+### Descriptive Statistics by Experimental Condition (sfa)
+
+```{r}
+## No Treatment
+quantiles_sfa_0 <- data.frame("Observations" = quantile(subset(wattack, sfa==0)$wattack, probs=c(.01,.05,.1,.25,.5,.75,.9,.95,.99))) %>%
+  rownames_to_column("Percentile")
+
+obs_sfa_0 <- rbind(wattack %>% 
+                     filter(sfa == 0) %>%
+                     select(wattack) %>%
+  slice_min(wattack, n=4) %>% head(3) %>%
+  mutate(wattack = as.character(wattack)) %>%
+  rename("Scores" = "wattack") %>%
+    add_row(Scores="Smallest", .before=1),
+  wattack %>% 
+    filter(sfa == 0) %>%
+    select(wattack) %>%
+  slice_max(wattack, n=4) %>% head(4) %>%
+  mutate(wattack = as.character(wattack)) %>%
+  rename("Scores" = "wattack") %>%
+    add_row(Scores="Largest", .before=1))
+  
+  
+# combine in a nice table
+cbind(quantiles_sfa_0, obs_sfa_0, describe(subset(wattack, sfa==0)$wattack) %>% 
+  mutate(variance = var(wattack$wattack)) %>%
+  select(n, mean, sd, variance, skew, kurtosis) %>%
+  pivot_longer(n:kurtosis, names_to = "measure", values_to="statistic") %>%
+  mutate(across(is.numeric, round, 2)) %>%
+  add_row(measure="", statistic=NULL, .before=1) %>%
+  add_row(measure="", statistic=NULL, .before=1) %>%
+  add_row(measure="", statistic=NULL, .before=1)) %>%
+  mutate(statistic = ifelse(is.na(statistic), "", statistic)) %>%
+  apa('Descriptive statistics for Word-Attack scores for NO TREATMENT')
+
+
+```
+
+```{r}
+## Treatment
+quantiles_sfa_1 <- data.frame("Observations" = quantile(subset(wattack, sfa==1)$wattack, probs=c(.01,.05,.1,.25,.5,.75,.9,.95,.99))) %>%
+  rownames_to_column("Percentile")
+
+obs_sfa_1 <- rbind(wattack %>% 
+                     filter(sfa == 1) %>%
+                     select(wattack) %>%
+  slice_min(wattack, n=4) %>% head(3) %>%
+  mutate(wattack = as.character(wattack)) %>%
+  rename("Scores" = "wattack") %>%
+    add_row(Scores="Smallest", .before=1),
+  wattack %>% 
+    filter(sfa == 1) %>%
+    select(wattack) %>%
+  slice_max(wattack, n=4) %>% head(4) %>%
+  mutate(wattack = as.character(wattack)) %>%
+  rename("Scores" = "wattack") %>%
+    add_row(Scores="Largest", .before=1))
+  
+  
+# combine in a nice table
+cbind(quantiles_sfa_1, obs_sfa_1, describe(subset(wattack, sfa==1)$wattack) %>% 
+  mutate(variance = var(wattack$wattack)) %>%
+  select(n, mean, sd, variance, skew, kurtosis) %>%
+  pivot_longer(n:kurtosis, names_to = "measure", values_to="statistic") %>%
+  mutate(across(is.numeric, round, 2)) %>%
+  add_row(measure="", statistic=NULL, .before=1) %>%
+  add_row(measure="", statistic=NULL, .before=1) %>%
+  add_row(measure="", statistic=NULL, .before=1)) %>%
+  mutate(statistic = ifelse(is.na(statistic), "", statistic)) %>%
+  apa('Descriptive statistics for Word-Attack scores for SFA TREATMENT')
+
+
+```
+
+```{r}
+wattack %>%
+  ggplot(aes(wattack, y=as.factor(sfa))) +
+  coord_flip()+
+  geom_boxplot()
+
+```
+
+## Models
+
+Instructions from
+
+  * [https://rpubs.com/rslbliss/r_mlm_ws](https://rpubs.com/rslbliss/r_mlm_ws)
+  * [https://rpsychologist.com/r-guide-longitudinal-lme-lmer](https://rpsychologist.com/r-guide-longitudinal-lme-lmer)
+
+### Model 1 - Unconditional Model, Table 7.1, pg. 114
+
+To estimate a random-effect or multi-level model, we can use `lmer()` from the `lme4` package. We will use `icc()` from the `performance` package and `r.squaredGLMM` from the `MuMIn` package.
+
+The function and argument is as follows:
+
+`lmer(dv ~ 1 (for unconditional) + (1 (for random) | grouping variable), data = data object)`
+
+Note: you would use `(0 | grouping variable)` for fixed effects.
+
+```{r}
+library(lme4) # for multilevel modelling
+library(performance)
+library(broom) # making a table from model
+
+# model 1
+model1 <- lmer(wattack ~ 1 + (1 | schid), data=wattack)
+
+# model table
+tidy(model1) %>%
+  add_row(term = "R2", 
+          estimate=MuMIn::r.squaredGLMM(model1)[,1]) %>%
+  add_row(term = "ICC", 
+          estimate =performance::icc(model1)$ICC_adjusted) %>%
+  mutate(across(is.numeric, round, 3)) %>%
+  apa("Model 1 - Fitted Random-Effects Multilevel Models: Unconditional Model") %>%
+  fmt_missing(
+    columns = 2:5,
+    missing_text = ""
+  )
+```
+$WATTACK_{ji} = (\gamma_0 + u_j) + \epsilon_{ij}$
+
+#### Other R Functions
+
+
+  
+For other important values, you can use:
+
+  * `parameters::p_value()` - to get p-values
+    + Note: You can alos use the package `lmerTest`, which gives p-values but then cannot be transformed into a table
+    + This is on purpose: [https://link.springer.com/article/10.3758/s13428-016-0809-y](https://link.springer.com/article/10.3758/s13428-016-0809-y)
+  * `lme4` can easily be transformed into a table with `broom::tidy`, `broom::augment`, and `broom::glance` but `lmerTest` cannot.
+  * `performance::icc()` to get the intraclass correlation
+  * `VarCorr()` - to get residual the standard deviations
+    +`tidy(model)[row,2]$estimate^2` to get the variances 
+
+### Model 2 - Conditional model that contains the main effect of SFA, Table 7.1, pg. 114
+
+```{r}
+# model 2
+model2 <- lmer(wattack ~ sfa + (1 | schid), data=wattack)
+
+# model table
+tidy(model2) %>%
+  add_row(term = "R2", 
+          estimate=MuMIn::r.squaredGLMM(model2)[,1]) %>%
+  add_row(term = "ICC", estimate = performance::icc(model2)$ICC_adjusted) %>%
+  mutate(across(is.numeric, round, 3)) %>%
+  apa("Model 2 - Fitted Random-Effects Multilevel Models: with SFA") %>%
+  fmt_missing(
+    columns = 2:5,
+    missing_text = ""
+  )
+```
+$WATTACK_{ji} = (\gamma_0 + u_j) + \gamma_1SFA_j + \epsilon_{ij}$
+
+
+### Model 3 - Conditional model that adds the main effect of covariate SCH_PPVT to Model #2, Table 7.1, pg. 114
+
+```{r}
+# model 3
+model3 <- lmer(wattack ~ sfa + sch_ppvt + (1 | schid), data=wattack)
+
+# model table
+tidy(model3) %>%
+  add_row(term = "R2", 
+          estimate=MuMIn::r.squaredGLMM(model3)[,1]) %>%
+  add_row(term = "ICC", estimate = performance::icc(model3)$ICC_adjusted) %>%
+  mutate(across(is.numeric, round, 3)) %>%
+  apa("Model 3 - Fitted Random-Effects Multilevel Models: with SFA and pretest scores") %>%
+  fmt_missing(
+    columns = 2:5,
+    missing_text = ""
+  )
+```
+
+$WATTACK_{ji} = (\gamma_0 + u_j) + \gamma_1SFA_j + \gamma_2SCH_PPVT_j + \epsilon_{ij}$
+
+### Model 4 - Model #3 using the within-school averages of prior ppvt score (new variable schavgppvt) from the analytic subsample instead of sch_ppvt. (Not shown in text, this analysis is mentioned in footnote 15 on page 127.) - from UCLA
+
+```{r}
+# model 4
+model4 <- lmer(wattack ~ sfa + schavgppvt + (1 | schid), 
+               data=wattack %>%
+  group_by(schid) %>%
+  mutate(schavgppvt = mean(ppvt))) # mean of pretest as covariate
+
+# model table
+tidy(model4) %>%
+  add_row(term = "R2", 
+          estimate=MuMIn::r.squaredGLMM(model4)[,1]) %>%
+  add_row(term = "ICC", estimate = performance::icc(model4)$ICC_adjusted) %>%
+  mutate(across(is.numeric, round, 3)) %>%
+  apa("Model 4 - Fitted Random-Effects Multilevel Models: with SFA and subsample of pretest scores") %>%
+  fmt_missing(
+    columns = 2:5,
+    missing_text = ""
+  )
+
+```
+
+## Model Variations
+
+The following models show various ways of controlling for individual- and school-level ppvt. None of the models shown below are displayed in the text. These are from the UCLA website.
+
+### Controlling for individual-level ppvt, deviated from the grand mean (new variable ppvt_devgm).
+
+```{r}
+# get grand mean
+summary(wattack$ppvt)
+```
+
+```{r}
+# model 5
+model5 <- lmer(wattack ~ sfa + ppvt_devgm + (1 | schid), 
+               data=wattack %>% 
+  mutate(ppvt_devgm = ppvt-90.4)) #pre-test minus grand mean
+
+# model table
+tidy(model5) %>%
+  add_row(term = "R2", 
+          estimate=MuMIn::r.squaredGLMM(model5)[,1]) %>%
+  add_row(term = "ICC", estimate = performance::icc(model5)$ICC_adjusted) %>%
+  mutate(across(is.numeric, round, 3)) %>%
+  apa("Model 5 - Fitted Random-Effects Multilevel Models: Controlling for individual-level ppvt") %>%
+  fmt_missing(
+    columns = 2:5,
+    missing_text = ""
+  )
+
+
+```
+
+### Controlling for individual-level ppvt by including deviations of individual scores from school-average scores (new variable ppvt_devsm) and school-average scores from the grand mean (new variable schavgppvt_devgm).
+
+```{r}
+# model 6
+model6 <- lmer(wattack ~ sfa + ppvt_devsm + schavgppvt_devgm + (1 | schid), 
+               data=wattack %>% 
+  mutate(schavgppvt = mean(ppvt), # school average
+         ppvt_devsm = ppvt-schavgppvt, # individual deviation from school average
+         schavgppvt_devgm = schavgppvt-90.4)) # school average deviation from grand mean
+
+# model table
+tidy(model6) %>%
+  add_row(term = "R2", 
+          estimate=MuMIn::r.squaredGLMM(model6)[,1]) %>%
+  add_row(term = "ICC", estimate = performance::icc(model6)$ICC_adjusted) %>%
+  mutate(across(is.numeric, round, 3)) %>%
+  apa("Model 6 - Fitted Random-Effects Multilevel Models: Controlling for individual-level ppvt") %>%
+  fmt_missing(
+    columns = 2:5,
+    missing_text = ""
+  )
+```
+> fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
+
+### Controlling for school-average ppvt deviated from the grand mean (schavgppvt_devgm).
+
+
+```{r}
+#model 7
+model7 <- lmer(wattack ~ sfa + schavgppvt_devgm + (1 | schid), 
+               data=wattack %>% 
+  mutate(schavgppvt = mean(ppvt), # school average
+         schavgppvt_devgm = schavgppvt-90.4)) # school average difference from grand mean
+
+# model table
+tidy(model7) %>%
+  add_row(term = "R2", 
+          estimate=MuMIn::r.squaredGLMM(model7)[,1]) %>%
+  add_row(term = "ICC", estimate = performance::icc(model7)$ICC_adjusted) %>%
+  mutate(across(is.numeric, round, 3)) %>%
+  apa("Model 7 - Fitted Random-Effects Multilevel Models: Controlling for school-level ppvt deviated from the grand mean") %>%
+  fmt_missing(
+    columns = 2:5,
+    missing_text = ""
+  )
+```
+> fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
+
+## Model Comparison Tables
+
+### Models from P. 114
+
+```{r, results='asis'}
+library(gt)
+tribble(
+  ~stat, ~model1, ~model2, ~model3,
+  "Intercept", 
+    tidy(model1)[1,2]$estimate,
+    tidy(model2)[1,2]$estimate, 
+    tidy(model3)[1,2]$estimate,
+  "SFA", 
+    NA, 
+    tidy(model2)[2,2]$estimate, 
+    tidy(model3)[2,2]$estimate,
+  "SCH_PPVT", 
+    NA, 
+    NA, 
+    tidy(model3)[3,2]$estimate,
+  "var_u", 
+      tidy(model1)[3,2]$estimate^2,
+      tidy(model2)[4,2]$estimate^2, 
+      tidy(model3)[5,2]$estimate^2,
+  "var_e", 
+      tidy(model1)[2,2]$estimate^2,
+      tidy(model2)[3,2]$estimate^2, 
+      tidy(model3)[4,2]$estimate^2,
+  "r2",
+    as_tibble(MuMIn::r.squaredGLMM(model1))$R2m,
+    as_tibble(MuMIn::r.squaredGLMM(model2))$R2m,
+    as_tibble(MuMIn::r.squaredGLMM(model3))$R2m,
+  "icc",
+    icc(model1)$ICC_adjusted,
+    icc(model2)$ICC_adjusted,
+    icc(model3)$ICC_adjusted
+) %>%
+  mutate(across(is.numeric, round, 3)) %>%
+  rename("Model #1: The unconditional model" = model1,
+         "Model #2: Main effect of SFA" = model2,
+         "Model #3: Adds the main effect of SCH_PPVT" = model3) %>%
+  apa() %>%
+  tab_spanner(
+    label = "Fitted Random-Effects Multilevel Models",
+    columns = 2:4
+  ) %>%
+    fmt_missing(
+    columns = 2:4,
+    missing_text = ""
+  )
+```
+
+### Models from UCLA
+
+```{r, results='asis'}
+library(gt)
+tribble(
+  ~stat, ~model1, ~model2, ~model3, ~model4, ~model5, ~model6,
+  "Intercept", 
+    tidy(model1)[1,2]$estimate,
+    tidy(model2)[1,2]$estimate, 
+    tidy(model3)[1,2]$estimate,
+    tidy(model4)[1,2]$estimate,
+    tidy(model5)[1,2]$estimate, 
+    tidy(model6)[1,2]$estimate,
+  "SFA", 
+    NA, 
+    tidy(model2)[2,2]$estimate, 
+    tidy(model3)[2,2]$estimate,
+    tidy(model4)[2,2]$estimate,
+    tidy(model5)[2,2]$estimate, 
+    tidy(model6)[2,2]$estimate,
+  "SCH_PPVT", 
+    NA, 
+    NA, 
+    tidy(model3)[3,2]$estimate,
+    NA,
+    NA,
+    NA,
+  "schavgppvt",
+    NA,
+    NA,
+    NA,
+    tidy(model4)[3,2]$estimate,
+    NA,
+    NA,
+  "ppvt_devgm",
+    NA,
+    NA,
+    NA,
+    NA,
+    tidy(model5)[3,2]$estimate,
+    NA,
+  "ppvt_devsm",
+    NA,
+    NA,
+    NA,
+    NA,
+    NA,
+    tidy(model6)[3,2]$estimate,
+  "var_u", 
+      tidy(model1)[3,2]$estimate^2,
+      tidy(model2)[4,2]$estimate^2, 
+      tidy(model3)[5,2]$estimate^2,
+      tidy(model4)[5,2]$estimate^2,
+      tidy(model5)[5,2]$estimate^2,
+      tidy(model6)[5,2]$estimate^2,
+  "var_e", 
+      tidy(model1)[2,2]$estimate^2,
+      tidy(model2)[3,2]$estimate^2, 
+      tidy(model3)[4,2]$estimate^2,
+      tidy(model4)[4,2]$estimate^2,
+      tidy(model5)[4,2]$estimate^2,
+      tidy(model6)[4,2]$estimate^2,
+  "r2",
+    as_tibble(MuMIn::r.squaredGLMM(model1))$R2m,
+    as_tibble(MuMIn::r.squaredGLMM(model2))$R2m,
+    as_tibble(MuMIn::r.squaredGLMM(model3))$R2m,
+    as_tibble(MuMIn::r.squaredGLMM(model4))$R2m,
+    as_tibble(MuMIn::r.squaredGLMM(model5))$R2m,
+    as_tibble(MuMIn::r.squaredGLMM(model6))$R2m,
+  "icc",
+    icc(model1)$ICC_adjusted,
+    icc(model2)$ICC_adjusted,
+    icc(model3)$ICC_adjusted,
+    icc(model4)$ICC_adjusted,
+    icc(model5)$ICC_adjusted,
+    icc(model6)$ICC_adjusted
+) %>%
+  mutate(across(is.numeric, round, 3)) %>%
+  rename("Model 1: The unconditional model" = model1,
+         "Model 2: Main effect of SFA" = model2,
+         "Model 3: Adds the main effect of SCH_PPVT" = model3,
+         "Model 4: Within-school averages" = model4,
+         "Model 5: PPVT deviated from the grand mean" = model5,
+         "Model 6: Deviations of individuals and schools" = model6) %>%
+  apa() %>%
+    fmt_missing(
+    columns = 2:7,
+    missing_text = ""
+  )
+```
+  Notes:
+  
+  * var_u = $\hat\sigma_\epsilon^2$
+  * var_e = $\hat\sigma_u^2$
+  * r2 = $R_{total}^2$
+  * icc = Intraclass correlation, $\hat\rho$

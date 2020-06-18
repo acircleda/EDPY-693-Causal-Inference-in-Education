@@ -1,4 +1,4 @@
-# Week 3 - Statistical Power and Sample Size
+# 2. Statistical Power and Sample Size (Week 3)
 
 ```{r, message=FALSE, warning=FALSE}
 library(tidyverse)
@@ -75,7 +75,7 @@ tribble(
 
 Recall Strategy 2, Table 4.1, pg. 49):
 
-```{r, mm4_ols}
+```{r}
 #model
 mm4_model1 <- lm(post_ach ~ voucher, data=nysp_vouchers)
 ```
@@ -111,14 +111,14 @@ tribble(
 
 (Strategy 3, Table 4.1, pg 49)
 
-```{r, mm4_ols2}
+```{r}
 mm4_model2 <- lm(post_ach ~ voucher + pre_ach, data = nysp_vouchers)
 apa.reg.table(mm4_model2)[[3]] %>% apa()
 apa.aov.table(mm4_model2)[[3]] %>% apa()
 ```
 
 
-Based on the regression results, the NYSP multiple  regression model had the following power:
+Based on the regression results, the NYSP multiple regression model had the following power:
 
 ```{r}
 nysp_regpower_2 <- pwr.f2.test(u = 2, v = 518, f2 = .442, sig.level = .05, power = )
@@ -128,114 +128,34 @@ tribble(
   ~Predictors, ~"Residual df", ~r2, ~sig, ~power,
    nysp_regpower_2[["u"]], nysp_regpower_2[["v"]], nysp_regpower_2[["f2"]], nysp_regpower_2[["sig.level"]], nysp_regpower_2[["power"]]
 ) %>%
-  apa("Power of the NYSP Voucher Multiplle Regression Test")
+  apa("Power of the NYSP Voucher Multiple Regression Test")
 ```
 
-> Does this power of 1 seem too higher?
 
 
-<!-- #### Estimating Power -->
+## Effect Size Calculator
 
-<!-- Given sample sizes of 200 and 1000, what is the power to detect an effect of .3 or .5? -->
+> Here is a quick interactive calculator I made. It's **very** basic.
 
-
-
-<!-- ```{r} -->
-
-<!-- nysp_pwr_200_3 <- pwr.t.test(n = 200, d = .3, sig.level = .05, power = , type ="two.sample") -->
-<!-- nysp_pwr_1000_3 <- pwr.t.test(n = 1000, d = .3, sig.level = .05, power = , type ="two.sample") -->
-<!-- nysp_pwr_200_5 <- pwr.t.test(n = 200, d = .5, sig.level = .05, power = , type ="two.sample") -->
-<!-- nysp_pwr_1000_5 <- pwr.t.test(n = 1000, d = .5, sig.level = .05, power = , type ="two.sample") -->
-<!-- ``` -->
-<!-- ```{r echo=FALSE} -->
-<!-- tribble( -->
-<!--   ~d, ~"n per group", ~power, -->
-<!--    .3, 100, nysp_pwr_200_3[["power"]], -->
-<!--   .3, 500, nysp_pwr_1000_3[["power"]], -->
-<!--   .5, 100, nysp_pwr_200_5[["power"]], -->
-<!--   .5, 500, nysp_pwr_1000_5[["power"]] -->
-<!-- ) %>% -->
-<!--   apa("Power to detect effects at group sample sizes of 100 and 500 (total 200 and 1000)") -->
-
-<!-- ``` -->
-
-<!-- #### Sample Size Calculations for a T-Test -->
-
-<!-- To achieve an effect size of at least .30, with an $\alpha$ of .05, and a power of .80, you would need a **sample size** of: -->
-
-<!-- ```{r} -->
-<!-- # power calculation -->
-<!-- nysp_sample_3 <- pwr.t.test(n = , d = .3, sig.level = .05, power = .8, type ="two.sample") -->
-<!-- nysp_sample_5 <- pwr.t.test(n = , d = .5, sig.level = .05, power = .8, type ="two.sample") -->
-<!-- ``` -->
-<!-- ```{r echo=FALSE} -->
-<!-- # table -->
-<!-- tribble( -->
-<!--   ~"n per group", ~d, ~sig, ~power, -->
-<!--   nysp_sample_3[["n"]], nysp_sample_3[["d"]], nysp_sample_3[["sig.level"]], nysp_sample_3[["power"]], -->
-<!--   nysp_sample_5[["n"]], nysp_sample_5[["d"]], nysp_sample_5[["sig.level"]], nysp_sample_5[["power"]] -->
-<!-- ) %>% -->
-<!--   mutate("Total Sample Size" = round(`n per group`*2, 0))  %>% -->
-<!--   relocate(5, .before = 1) %>% -->
-<!--   relocate(3, .before = 1) %>% -->
-<!--   apa("Example Sample Size Requirements at various levels of d") -->
-<!-- ``` -->
-
-<!-- > Why does a higher effect size mean a lower sample size? -->
+```{r}
+knitr::include_url('https://acircleda.shinyapps.io/PowerCalculator/', height = '900px')
+```
 
 
-<!-- #### Effect Size Calculations -->
+## Accuracy in Parameter Estimation (AIPE)
 
-<!-- What effect size will you get at 200, 500, and 800 total sample size given an  $\alpha$ of .05 and power of .80? -->
+AIPE is another method which can be used to calculate estimated sample size. It is based on specifying a confidence interval in which you would find an effect size of interest. Here is an example based on the NYSP multiple regression using the `MBESS` package:
 
-<!-- ```{r} -->
-<!-- # power calculations -->
-<!-- nysp_es_200 <- pwr.t.test(n = 100, d = , sig.level = .05, power = .8, type ="two.sample") -->
-<!-- nysp_es_500 <- pwr.t.test(n = 250, d = , sig.level = .05, power = .8, type ="two.sample") -->
-<!-- nysp_es_800 <- pwr.t.test(n = 400, d = , sig.level = .05, power = .8, type ="two.sample") -->
-<!-- ``` -->
-<!-- ```{r echo=FALSE} -->
-<!-- # table -->
-<!-- tribble( -->
-<!--   ~"Total Sample Size", ~"Estimated Effect", -->
-<!--   200, nysp_es_200[["d"]], -->
-<!--   500, nysp_es_500[["d"]], -->
-<!--   800, nysp_es_800[["d"]], -->
-<!-- ) %>% -->
-<!--   mutate(across(is.numeric, round, 3)) %>% -->
-<!--   apa("Estimated effect sizes at different total sample sizes") -->
-<!-- ``` -->
+```{r message=FALSE, warning=FALSE}
+library(MBESS)
 
+ss.aipe.R2(Population.R2 = .442, conf.level = .95, width=.10, p=2, Random.Predictors = FALSE)
+```
 
+To find an $R^2$ of .442${_{CI}}_{[.3-.5]}$, you would need the sample size indicated above (661). The actual sample size that found the $R^2$ of .442 was 520. The estimate was not exact, but was very close.
 
+**References**
 
-<!-- #### Sample Size for Simple Linear Regression -->
+Kabacoff, R. I. (2017). Power analysis. *Quick-R*. [https://www.statmethods.net/stats/power.html](https://www.statmethods.net/stats/power.html) 
 
-<!-- To achieve an effect size of at least .30, with one predictor you would need a sample size of: -->
-
-<!-- ```{r} -->
-<!-- nysp_sample_3_reg <- pwr.f2.test(u = 1, v = , f2 = .30, sig.level = .05, power = .8) -->
-<!-- ``` -->
-
-<!-- ```{r echo=FALSE} -->
-<!-- # table -->
-<!-- tribble( -->
-<!--   ~"Sample Size", ~r2, ~sig, ~power, -->
-<!--   round(nysp_sample_3_reg[["v"]], 0), nysp_sample_3_reg[["f2"]], nysp_sample_3_reg[["sig.level"]], nysp_sample_3_reg[["power"]] -->
-<!-- ) %>% -->
-<!--   apa("Example Sample Size Requirements for an r2 of .3") -->
-<!-- ``` -->
-
-<!-- > !!! Does this power calculation seem correct? -->
-
-<!-- #### Estimaing Effect Size for Simple Linear Regression -->
-
-<!-- ### Multiple Regression -->
-
-<!-- #### Power for Simple Linear Regression -->
-
-<!-- #### Sample Size for Simple Linear Regression -->
-
-<!-- #### Estimating Effect Size for Simple Linear Regression -->
-
-
+Murnane, R. J., & Willett, J. B. (2010). *Methods matter: Improving causal inference in educational and social science research*. Oxford University Press.
