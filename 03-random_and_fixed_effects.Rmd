@@ -9,9 +9,14 @@ The data examines a subset of SFA data which focuses on first graders in their f
 
 ## Key Concepts
 
-  * Random-Effects Model
-  * Intraclass Correlation
-  * Fixed-Effects Model
+  * **Random-Effects Model** - Allows the inclusion of intact groups (clusters) within a model
+    + Each cluster is given its own random intercept made up of its mean and its residual variance, meaning that each group has a different, or random, intercept
+  * **Intraclass Correlation (ICC)** - A ratio that indicates the percent of variation in the outcome that is attributed to the group. It represents between-group differences.
+    + The inverse is attributable to individual- or lowest-level differences
+    + The way variance is partitioned is a good indicator of homogeneity of individuals on the outcome
+      + Low ICC means less differences among groups and more differences among individuals *within* groups, meaning individuals are independent of each other
+      + High ICC means more difference among groups than within them, meaning individuals *within* groups are interdependent.
+  * **Fixed-Effects Model** - Allows for the inclusion of a dummy variable that controls for group-level effects
 
 ```{r message=FALSE, warning=FALSE}
 library(tidyverse)
@@ -22,7 +27,7 @@ library(gt)
 source("data/apafunction.R")
 ```
 
-```{r message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE}
 #load data
 wattack <- read_dta("data/methods_matter/ch7_sfa.dta")
 ```
@@ -536,3 +541,27 @@ tribble(
   * var_e = $\hat\sigma_u^2$
   * r2 = $R_{total}^2$
   * icc = Intraclass correlation, $\hat\rho$
+  
+<!--   # load data -->
+<!-- wattack <- read_dta("data/methods_matter/ch7_sfa.dta") -->
+
+<!-- # generate new variables following STATA example: -->
+<!-- #### bysort schid: egen schavgppvt = mean(ppvt) -->
+<!-- #### gen ppvt_devsm = ppvt-schavgppvt  -->
+<!-- #### gen schavgppvt_devgm = schavgppvt-90.4006 -->
+<!-- #### xtreg wattack sfa ppvt_devsm schavgppvt_devgm, i(schid) -->
+
+
+<!-- model6_data <- wattack %>% -->
+<!--   group_by(schid) %>% -->
+<!--   mutate(schavgppvt = mean(ppvt)) %>% -->
+<!--   ungroup() %>% -->
+<!--   mutate(ppvt_devsm = ppvt-schavgppvt, -->
+<!--          schavgppvt_devgm = schavgppvt-90.4) -->
+
+<!-- cor(model6_data$ppvt_devsm, model6_data$ppvt) -->
+
+<!-- model6 <- lmer(wattack ~ sfa + ppvt_devsm + schavgppvt_devgm + (1 | schid), data = model6_data)  -->
+<!--                 # school average deviation from grand mean -->
+
+<!-- car::vif(model6) -->

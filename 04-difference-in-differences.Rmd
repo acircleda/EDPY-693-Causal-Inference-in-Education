@@ -1,0 +1,178 @@
+# 4. Difference-in-Differences
+
+**Social Security Survivor Benefits**
+
+A "natural experiment" looking at college attendance outcome of those before and after 1981. "In 1981, the U.S. Congress
+eliminated the SSSB program, mandating that otherwise eligible children
+who were not enrolled in college as of May 1982 would not receive" financial aid that they were previously entitled to.
+
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(haven)
+library(psych)
+library(apaTables)
+library(gt)
+source("data/apafunction.R")
+```
+
+```{r, message=FALSE, warning=FALSE}
+#load and prep data
+sssb <- read_dta("data/methods_matter/ch8_dynarski.dta") %>%
+  mutate(fatherdec = as_factor(fatherdec))
+```
+ 
+**Variables**:
+
+  * id: individual ID?
+  * hhid: ?
+  * wt88: sampling weight
+  * coll: enrolled full-time in college by age 23 (1=yes | 0=no)
+  * hgc23: highest grade completed by age 23 (10-19)
+  * yearsr: year in which a senior
+  * fatherdec: father deceased by age 18 (1=yes | 0=no)
+  * offer: senior in year SSSB support available (1=yes | 0=no)
+
+## Survey Data and Weights
+
+The survey contains weighted data and therefore must be treated differently from typical data frames. Here, survey weighting and setup can be accomplished with either `survey` or `srvyr` packages. They are quite similar, and, indeed, `sryvr` is used in conjunction with `survey`. The primary difference is that `srvyr` can be used with `tidyverse` `dplyr` verbs such as `mutate()` and `summarize()`. 
+
+Examples are given using both packages.
+
+`survey` package instructions come from [https://stylizeddata.com/how-to-use-survey-weights-in-r/](https://stylizeddata.com/how-to-use-survey-weights-in-r/)
+
+`srvyr` package instructions come from [https://cran.r-project.org/web/packages/srvyr/vignettes/srvyr-vs-survey.html](https://cran.r-project.org/web/packages/srvyr/vignettes/srvyr-vs-survey.html)
+
+```{r}
+library(survey)
+library(srvyr)
+
+
+# using `survey`
+survey_data <- svydesign(id      = ~hhid,
+                          weights = ~wt88,
+                          nest    = F,
+                          data    = sssb)
+
+# using `srvyr`
+srvy_data <- sssb %>% as_survey_design(ids = hhid, 
+                              weights = wt88)
+```
+
+## Descriptive statistics
+
+Survey: Mean estimation
+
+```{r}
+# using `survey`
+svymean(~coll, survey_data) %>%
+  knitr::kable()
+
+# using `srvyr`
+srvy_data %>%
+  summarize(mean = survey_mean(coll))
+```
+
+Cross tabulation of "fatherdec" by "yearsr"
+
+```{r}
+sssb %>%
+  tabyl(fatherdec, yearsr) %>% # cross tab
+  adorn_totals("row") %>% # make a total row
+  rowwise() %>% # perform a mutation across rows
+  mutate(Total = sum(`79`,`80`,`81`,`82`,`83`)) %>% # sum rows
+  apa() %>%
+   tab_spanner(
+    label = "Year in which a senior",
+    columns = vars(`79`,`80`,`81`,`82`,`83`)
+   )
+```
+
+## Direct Estimate
+
+### Estimate means
+
+```{r}
+# mean estimation by levels
+
+#using `survey`
+svyby(~coll, ~fatherdec + offer, survey_data, svymean, keep.var=TRUE) %>%
+  apa("Direct Estimate shown in Table 8.1 on page 143 using survey")
+
+# using `srvyr`
+srvy_data %>%
+  group_by(fatherdec, offer) %>% 
+  summarize(means = survey_mean(coll)) %>%
+  apa("Direct Estimate shown in Table 8.1 on page 143 using srvyr")
+```
+
+> Note: could not estimate t-test using the following. Could not select only `fatherdec = "Father deceased"` for t-test - estimate is a mean difference of .0057, should be .20
+
+```svyttest(coll~fatherdec == "Father deceased", survey_data)```
+
+### Estimate t-test by hand
+
+```{r}
+# calculate t value from rable above
+(0.5604556-0.3522178)/sqrt(0.05274389^2 + 0.08124455^2)
+
+# p-value from one-sided test
+# from https://www.cyclismo.org/tutorial/R/pValues.html#calculating-a-single-p-value-from-a-t-distribution
+
+pt(-abs(2.1498),df=191-1)
+```
+### Direct Estimate via OLS
+```{r}
+## using `survey`
+
+# select only "father deceased"
+direct_subset <- subset(survey_data, fatherdec == "Father deceased")
+
+# model
+direct_ols <- svyglm(coll ~ offer,
+          family = gaussian(),
+          data   = survey_data,
+          design = direct_subset)
+
+## using `srvyr`
+
+# select only "father deceased"
+srvy_subset <- srvy_data %>%
+  filter(fatherdec == "Father deceased")
+
+# model
+srvy_ols <- svyglm(coll ~ offer,
+          family = gaussian(),
+          data   = srvy_data,
+          design = srvy_subset)
+
+# make a table
+broom::tidy(srvy_ols) %>%
+  mutate(across(is.numeric, round, 3)) %>%
+  add_row(term = "r2",
+           estimate = poliscidata::fit.svyglm(direct_ols, 
+                                               digits = 3)) %>%
+            slice(-4) %>%
+  apa("Linear-Probability Model (OLS) Estimate shown in Table 8.1 on page 143")%>%
+  fmt_missing(
+    columns = 2:5,
+    missing_text = ""
+  )
+
+```
+
+```{r}
+# it is easier to make a graph via `srvyr`, `dplyr` verbs, and `ggplot`
+srvy_data %>%
+  group_by(fatherdec, offer) %>% 
+  summarize(means = survey_mean(coll)) %>%
+  ungroup() %>%
+  mutate(offer = recode(offer,
+                        `1` = "Pre-1981", 
+                        `0` = "Post-1981")) %>%
+  ggplot()+
+  geom_line(aes(x=fct_rev(offer), y=means, group=1))+
+  facet_wrap(~fct_rev(fatherdec))+
+  scale_y_continuous(limits=c(0,1))
+```
+

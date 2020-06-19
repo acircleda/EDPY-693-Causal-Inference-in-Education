@@ -1,5 +1,5 @@
 ---
-title: "Causal Inference in Education"
+title: <span style="color:#FF8200">Causal Inference in Education</span>
 author: "Anthony Schmidt"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 site: bookdown::bookdown_site
