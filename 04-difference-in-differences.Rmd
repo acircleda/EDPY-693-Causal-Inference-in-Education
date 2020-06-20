@@ -1,18 +1,29 @@
 # 4. Difference-in-Differences
 
+## Methods Matter, Chapter 8
+
+The following example comes from  Murnane and Willett (2010), chapter 8.
+
 **Social Security Survivor Benefits**
 
 A "natural experiment" looking at college attendance outcome of those before and after 1981. "In 1981, the U.S. Congress
 eliminated the SSSB program, mandating that otherwise eligible children
 who were not enrolled in college as of May 1982 would not receive" financial aid that they were previously entitled to.
 
+### Key Concepts
 
-```{r message=FALSE, warning=FALSE}
+  * **Discontinuity Design** - A research measures the treatment effect when a forcing variable such as time, a natural disaster, or policy change "randomly" places individuals into treatment and control groups and establishes a clear cut-point for these groups.
+  * **Difference-in-Differences** - A design that is useful when a relationship between an outcome and the forcing variable may exist
+    + This means that there are differences in the groups that may affect the outcome between groups
+    
+
+
+```{r echo=TRUE}
 library(tidyverse)
 library(haven)
 library(psych)
-library(apaTables)
 library(gt)
+library(janitor)
 source("data/apafunction.R")
 ```
 
@@ -33,7 +44,7 @@ sssb <- read_dta("data/methods_matter/ch8_dynarski.dta") %>%
   * fatherdec: father deceased by age 18 (1=yes | 0=no)
   * offer: senior in year SSSB support available (1=yes | 0=no)
 
-## Survey Data and Weights
+### Survey Data and Weights
 
 The survey contains weighted data and therefore must be treated differently from typical data frames. Here, survey weighting and setup can be accomplished with either `survey` or `srvyr` packages. They are quite similar, and, indeed, `sryvr` is used in conjunction with `survey`. The primary difference is that `srvyr` can be used with `tidyverse` `dplyr` verbs such as `mutate()` and `summarize()`. 
 
@@ -43,7 +54,7 @@ Examples are given using both packages.
 
 `srvyr` package instructions come from [https://cran.r-project.org/web/packages/srvyr/vignettes/srvyr-vs-survey.html](https://cran.r-project.org/web/packages/srvyr/vignettes/srvyr-vs-survey.html)
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 library(survey)
 library(srvyr)
 
@@ -59,7 +70,7 @@ srvy_data <- sssb %>% as_survey_design(ids = hhid,
                               weights = wt88)
 ```
 
-## Descriptive statistics
+### Descriptive statistics
 
 Survey: Mean estimation
 
@@ -73,7 +84,7 @@ srvy_data %>%
   summarize(mean = survey_mean(coll))
 ```
 
-Cross tabulation of "fatherdec" by "yearsr"
+#### Cross tabulation of "fatherdec" by "yearsr"
 
 ```{r}
 sssb %>%
@@ -88,9 +99,9 @@ sssb %>%
    )
 ```
 
-## Direct Estimate
+### Direct Estimate
 
-### Estimate means
+#### Estimate means
 
 ```{r}
 # mean estimation by levels
@@ -110,7 +121,7 @@ srvy_data %>%
 
 ```svyttest(coll~fatherdec == "Father deceased", survey_data)```
 
-### Estimate t-test by hand
+#### Estimate t-test by hand
 
 ```{r}
 # calculate t value from rable above
@@ -121,7 +132,7 @@ srvy_data %>%
 
 pt(-abs(2.1498),df=191-1)
 ```
-### Direct Estimate via OLS
+#### Direct Estimate / First Difference (via OLS)
 ```{r}
 ## using `survey`
 
@@ -161,6 +172,7 @@ broom::tidy(srvy_ols) %>%
 
 ```
 
+#### Graph of data
 ```{r}
 # it is easier to make a graph via `srvyr`, `dplyr` verbs, and `ggplot`
 srvy_data %>%
@@ -176,3 +188,111 @@ srvy_data %>%
   scale_y_continuous(limits=c(0,1))
 ```
 
+### Second Difference
+
+```{r}
+## using `srvyr`
+
+# select only "father NOT deceased"
+srvy_subset2 <- srvy_data %>%
+  filter(fatherdec == "Father not deceased")
+
+# model
+srvy_ols2 <- svyglm(coll ~ offer,
+          family = gaussian(),
+          data   = srvy_data,
+          design = srvy_subset2)
+
+# make a table
+broom::tidy(srvy_ols2) %>%
+  mutate(across(is.numeric, round, 3)) %>%
+  add_row(term = "r2",
+           estimate = poliscidata::fit.svyglm(srvy_ols2, 
+                                               digits = 3)) %>%
+            slice(-4) %>%
+  apa("Table 8.2 on page 157, labeled “(Second Diff)”")%>%
+  fmt_missing(
+    columns = 2:5,
+    missing_text = ""
+  )
+
+```
+
+### Full Differnece-in-Differences Model
+
+```{r}
+# model
+srvy_did <- svyglm(coll ~ offer + fatherdec + offer*fatherdec,
+          family = gaussian(),
+          data   = srvy_data,
+          design = srvy_data)
+
+# make a table
+broom::tidy(srvy_did) %>%
+  mutate(across(is.numeric, round, 3)) %>%
+  add_row(term = "r2",
+           estimate = poliscidata::fit.svyglm(srvy_did, 
+                                               digits = 3)) %>%
+  slice(-6) %>%
+  apa("Table 8.4 on page 161.")%>%
+  fmt_missing(
+    columns = 2:5,
+    missing_text = ""
+  )
+
+```
+> UCLA calculated the first difference with the Stata code `lincom offer + offerxfatherdec  ( 1)  offer + offerxfatherdec = 0` - not sure how to do this in R other than manual estimation (as [above][Estimate t-test by hand]). 
+
+## Impact Evaluation, Chapter 7
+
+The following example comes from Gertler, Martinez, Premand, Rawlings, and Vermeersch (2016), chapter 8. Data is from [The World Bank](https://www.worldbank.org/en/programs/sief-trust-fund/publication/impact-evaluation-in-practice). The example below is from Stata Example 8. Difference-in-Differences in a Regression Framework, page 22, of the Impct Evaluation Technical Companion.
+
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(haven)
+library(psych)
+library(gt)
+library(janitor)
+library(apaTables)
+source("data/apafunction.R")
+```
+
+**Health Expenditures**
+
+
+
+In this method, you compare the change in health expenditures over time between enrolled and nonenrolled households in the treatment localities.
+
+```{r, message=FALSE, warning=FALSE}
+#load and prep data
+impact_data <- read_dta("data/impact_evaluation/evaluation.dta")
+```
+
+### Difference-in-Differences in a Regression Framework
+ 
+```{r}
+impact_did <- lm(health_expenditures ~ round + eligible + eligible*round, data=impact_data %>%
+  filter(treatment_locality == 1)) %>%
+  apa.reg.table()
+
+apa(impact_did$table_body, impact_did$table_title)
+```
+### Difference-in-Differences in a Multivariate Regression Framework
+
+```{r}
+impact_did2 <- lm(health_expenditures ~ round*eligible + ., data =
+                    impact_data %>%
+                    filter(treatment_locality == 1) %>%
+                    dplyr::select(health_expenditures, round, eligible, age_hh, age_sp, educ_hh, educ_sp, female_hh, indigenous, hhsize, dirtfloor, bathroom, land, hospital_distance)) %>%
+  apa.reg.table()
+
+apa(impact_did2$table_body, impact_did2$table_title)
+```
+
+
+**References**
+
+Gertler, P. J., Martinez, S., Premand, P., Rawlings, L. B., & Vermeersch, C. M. (2016). *Impact evaluation in practice*. The World Bank.
+
+Murnane, R. J., & Willett, J. B. (2010). *Methods matter: Improving causal inference in educational and social science research*. Oxford University Press.
