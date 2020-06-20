@@ -1,5 +1,12 @@
 # 4. Difference-in-Differences
 
+## Key Concepts
+
+  * **Discontinuity Design** - A research measures the treatment effect when a forcing variable such as time, a natural disaster, or policy change "randomly" places individuals into treatment and control groups and establishes a clear cut-point for these groups.
+  * **Difference-in-Differences** - A design that is useful when a relationship between an outcome and the forcing variable may exist
+    + This means that there are differences in the groups that may affect the outcome between groups
+    
+    
 ## Methods Matter, Chapter 8
 
 The following example comes from  Murnane and Willett (2010), chapter 8.
@@ -10,15 +17,11 @@ A "natural experiment" looking at college attendance outcome of those before and
 eliminated the SSSB program, mandating that otherwise eligible children
 who were not enrolled in college as of May 1982 would not receive" financial aid that they were previously entitled to.
 
-### Key Concepts
 
-  * **Discontinuity Design** - A research measures the treatment effect when a forcing variable such as time, a natural disaster, or policy change "randomly" places individuals into treatment and control groups and establishes a clear cut-point for these groups.
-  * **Difference-in-Differences** - A design that is useful when a relationship between an outcome and the forcing variable may exist
-    + This means that there are differences in the groups that may affect the outcome between groups
-    
 
 
 ```{r echo=TRUE}
+# load packages
 library(tidyverse)
 library(haven)
 library(psych)
@@ -249,6 +252,7 @@ The following example comes from Gertler, Martinez, Premand, Rawlings, and Verme
 
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
+# load packages
 library(tidyverse)
 library(haven)
 library(psych)
@@ -259,7 +263,6 @@ source("data/apafunction.R")
 ```
 
 **Health Expenditures**
-
 
 
 In this method, you compare the change in health expenditures over time between enrolled and nonenrolled households in the treatment localities.

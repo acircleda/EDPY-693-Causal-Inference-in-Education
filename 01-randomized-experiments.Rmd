@@ -16,6 +16,7 @@ The data examines a subset of African-American students from the 1997 New York S
   
 
 ```{r message=FALSE, warning=FALSE}
+# load packages
 library(tidyverse)
 library(haven)
 library(psych)

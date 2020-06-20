@@ -1,6 +1,7 @@
 # 2. Statistical Power and Sample Size (Week 3)
 
 ```{r, message=FALSE, warning=FALSE}
+# load packages
 library(tidyverse)
 library(haven)
 source("data/apafunction.R") #for APA-style tables

@@ -1,12 +1,5 @@
 # 3. Random- and Fixed-Effects Models (Week 4 - Part I)
 
-
-**Success for All (SFA) Program**
-
-The following example comes from  Murnane and Willett (2010), chapter 7. The data was originally downloaded from the [UCLA Institute for Digital Research and Education](https://stats.idre.ucla.edu/stata/examples/methods-matter/chapter7/).
-
-The data examines a subset of SFA data which focuses on first graders in their first year in which their school participated in the SFA program. The example focuses on a single outcome, a "Word-Attack" reading test score measured at the end of the first year.
-
 ## Key Concepts
 
   * **Random-Effects Model** - Allows the inclusion of intact groups (clusters) within a model
@@ -17,8 +10,17 @@ The data examines a subset of SFA data which focuses on first graders in their f
       + Low ICC means less differences among groups and more differences among individuals *within* groups, meaning individuals are independent of each other
       + High ICC means more difference among groups than within them, meaning individuals *within* groups are interdependent.
   * **Fixed-Effects Model** - Allows for the inclusion of a dummy variable that controls for group-level effects
+  
+**Success for All (SFA) Program**
+
+The following example comes from  Murnane and Willett (2010), chapter 7. The data was originally downloaded from the [UCLA Institute for Digital Research and Education](https://stats.idre.ucla.edu/stata/examples/methods-matter/chapter7/).
+
+The data examines a subset of SFA data which focuses on first graders in their first year in which their school participated in the SFA program. The example focuses on a single outcome, a "Word-Attack" reading test score measured at the end of the first year.
+
+
 
 ```{r message=FALSE, warning=FALSE}
+# load packages
 library(tidyverse)
 library(haven)
 library(psych)

@@ -20,7 +20,7 @@ output:
 
 # What is this book?
 
-It is an R-based exercise book related to the following three **causal inference** texts:
+It is an R-based book of data analysis exercises related to the following three **causal inference** texts:
 
 
   * Murnane, R. J., & Willett, J. B. (2010). *Methods matter: Improving causal inference in educational and social science research*. Oxford University Press.
