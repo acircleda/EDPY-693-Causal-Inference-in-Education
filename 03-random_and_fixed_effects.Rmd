@@ -353,7 +353,10 @@ tidy(model5) %>%
 # model 6
 model6 <- lmer(wattack ~ sfa + ppvt_devsm + schavgppvt_devgm + (1 | schid), 
                data=wattack %>% 
-  mutate(schavgppvt = mean(ppvt), # school average
+                 group_by(schid) %>%
+  mutate(schavgppvt = mean(ppvt)) %>% # school average
+    ungroup() %>%
+    mutate(
          ppvt_devsm = ppvt-schavgppvt, # individual deviation from school average
          schavgppvt_devgm = schavgppvt-90.4)) # school average deviation from grand mean
 
@@ -369,7 +372,6 @@ tidy(model6) %>%
     missing_text = ""
   )
 ```
-> fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
 
 ### Controlling for school-average ppvt deviated from the grand mean (schavgppvt_devgm).
 
@@ -377,9 +379,11 @@ tidy(model6) %>%
 ```{r}
 #model 7
 model7 <- lmer(wattack ~ sfa + schavgppvt_devgm + (1 | schid), 
-               data=wattack %>% 
-  mutate(schavgppvt = mean(ppvt), # school average
-         schavgppvt_devgm = schavgppvt-90.4)) # school average difference from grand mean
+               data=wattack %>%
+                 group_by(schid) %>%
+  mutate(schavgppvt = mean(ppvt)) %>% # school average
+    ungroup() %>%
+  mutate(schavgppvt_devgm = schavgppvt-90.4)) # school average difference from grand mean
 
 # model table
 tidy(model7) %>%
@@ -452,7 +456,7 @@ tribble(
 ```{r, results='asis'}
 library(gt)
 tribble(
-  ~stat, ~model1, ~model2, ~model3, ~model4, ~model5, ~model6,
+  ~stat, ~model1, ~model2, ~model3, ~model4, ~model5, ~model6, ~model7,
   "Intercept", 
     tidy(model1)[1,2]$estimate,
     tidy(model2)[1,2]$estimate, 
@@ -460,6 +464,7 @@ tribble(
     tidy(model4)[1,2]$estimate,
     tidy(model5)[1,2]$estimate, 
     tidy(model6)[1,2]$estimate,
+    tidy(model7)[1,2]$estimate,
   "SFA", 
     NA, 
     tidy(model2)[2,2]$estimate, 
@@ -467,10 +472,12 @@ tribble(
     tidy(model4)[2,2]$estimate,
     tidy(model5)[2,2]$estimate, 
     tidy(model6)[2,2]$estimate,
+    tidy(model7)[2,2]$estimate,
   "SCH_PPVT", 
     NA, 
     NA, 
     tidy(model3)[3,2]$estimate,
+    NA,
     NA,
     NA,
     NA,
@@ -481,12 +488,14 @@ tribble(
     tidy(model4)[3,2]$estimate,
     NA,
     NA,
+    NA,
   "ppvt_devgm",
     NA,
     NA,
     NA,
     NA,
     tidy(model5)[3,2]$estimate,
+    NA,
     NA,
   "ppvt_devsm",
     NA,
@@ -495,20 +504,31 @@ tribble(
     NA,
     NA,
     tidy(model6)[3,2]$estimate,
+    NA,
+  "schavgppvt_devgm",
+    NA,
+    NA,
+    NA,
+    NA,
+    NA,
+    tidy(model6)[4,2]$estimate,
+    tidy(model7)[3,2]$estimate,
   "var_u", 
       tidy(model1)[3,2]$estimate^2,
       tidy(model2)[4,2]$estimate^2, 
       tidy(model3)[5,2]$estimate^2,
       tidy(model4)[5,2]$estimate^2,
       tidy(model5)[5,2]$estimate^2,
-      tidy(model6)[5,2]$estimate^2,
+      tidy(model6)[6,2]$estimate^2,
+      tidy(model7)[5,2]$estimate^2,
   "var_e", 
       tidy(model1)[2,2]$estimate^2,
       tidy(model2)[3,2]$estimate^2, 
       tidy(model3)[4,2]$estimate^2,
       tidy(model4)[4,2]$estimate^2,
       tidy(model5)[4,2]$estimate^2,
-      tidy(model6)[4,2]$estimate^2,
+      tidy(model6)[5,2]$estimate^2,
+      tidy(model7)[4,2]$estimate^2,
   "r2",
     as_tibble(MuMIn::r.squaredGLMM(model1))$R2m,
     as_tibble(MuMIn::r.squaredGLMM(model2))$R2m,
@@ -516,13 +536,15 @@ tribble(
     as_tibble(MuMIn::r.squaredGLMM(model4))$R2m,
     as_tibble(MuMIn::r.squaredGLMM(model5))$R2m,
     as_tibble(MuMIn::r.squaredGLMM(model6))$R2m,
+    as_tibble(MuMIn::r.squaredGLMM(model7))$R2m,
   "icc",
     icc(model1)$ICC_adjusted,
     icc(model2)$ICC_adjusted,
     icc(model3)$ICC_adjusted,
     icc(model4)$ICC_adjusted,
     icc(model5)$ICC_adjusted,
-    icc(model6)$ICC_adjusted
+    icc(model6)$ICC_adjusted,
+    icc(model7)$ICC_adjusted
 ) %>%
   mutate(across(is.numeric, round, 3)) %>%
   rename("Model 1: The unconditional model" = model1,
@@ -530,10 +552,11 @@ tribble(
          "Model 3: Adds the main effect of SCH_PPVT" = model3,
          "Model 4: Within-school averages" = model4,
          "Model 5: PPVT deviated from the grand mean" = model5,
-         "Model 6: Deviations of individuals and schools" = model6) %>%
+         "Model 6: Deviations of individuals and schools" = model6,
+         "Model 7: Controlling for school average PPVT" = model7) %>%
   apa() %>%
     fmt_missing(
-    columns = 2:7,
+    columns = 2:8,
     missing_text = ""
   )
 ```

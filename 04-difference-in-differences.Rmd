@@ -24,7 +24,6 @@ who were not enrolled in college as of May 1982 would not receive" financial aid
 # load packages
 library(tidyverse)
 library(haven)
-library(psych)
 library(gt)
 library(janitor)
 source("data/apafunction.R")
@@ -51,7 +50,7 @@ sssb <- read_dta("data/methods_matter/ch8_dynarski.dta") %>%
 
 The survey contains weighted data and therefore must be treated differently from typical data frames. Here, survey weighting and setup can be accomplished with either `survey` or `srvyr` packages. They are quite similar, and, indeed, `sryvr` is used in conjunction with `survey`. The primary difference is that `srvyr` can be used with `tidyverse` `dplyr` verbs such as `mutate()` and `summarize()`. 
 
-Examples are given using both packages.
+First examples are given using both packages.
 
 `survey` package instructions come from [https://stylizeddata.com/how-to-use-survey-weights-in-r/](https://stylizeddata.com/how-to-use-survey-weights-in-r/)
 
@@ -109,20 +108,25 @@ sssb %>%
 ```{r}
 # mean estimation by levels
 
-#using `survey`
-svyby(~coll, ~fatherdec + offer, survey_data, svymean, keep.var=TRUE) %>%
-  apa("Direct Estimate shown in Table 8.1 on page 143 using survey")
-
 # using `srvyr`
 srvy_data %>%
   group_by(fatherdec, offer) %>% 
   summarize(means = survey_mean(coll)) %>%
   apa("Direct Estimate shown in Table 8.1 on page 143 using srvyr")
 ```
+#### Estime first difference by t-test
 
-> Note: could not estimate t-test using the following. Could not select only `fatherdec = "Father deceased"` for t-test - estimate is a mean difference of .0057, should be .20
 
-```svyttest(coll~fatherdec == "Father deceased", survey_data)```
+```{r}
+# select only "father deceased"
+direct_subset <- srvy_data %>%
+  filter(fatherdec == "Father deceased")
+
+# t-test with `survey` function
+svyttest(coll~offer, direct_subset) %>%
+  broom::tidy() %>%
+  apa()
+```
 
 #### Estimate t-test by hand
 
@@ -135,36 +139,21 @@ srvy_data %>%
 
 pt(-abs(2.1498),df=191-1)
 ```
+
+
 #### Direct Estimate / First Difference (via OLS)
 ```{r}
-## using `survey`
-
-# select only "father deceased"
-direct_subset <- subset(survey_data, fatherdec == "Father deceased")
-
-# model
-direct_ols <- svyglm(coll ~ offer,
-          family = gaussian(),
-          data   = survey_data,
-          design = direct_subset)
-
-## using `srvyr`
-
-# select only "father deceased"
-srvy_subset <- srvy_data %>%
-  filter(fatherdec == "Father deceased")
-
 # model
 srvy_ols <- svyglm(coll ~ offer,
           family = gaussian(),
           data   = srvy_data,
-          design = srvy_subset)
+          design = direct_subset)
 
 # make a table
 broom::tidy(srvy_ols) %>%
   mutate(across(is.numeric, round, 3)) %>%
   add_row(term = "r2",
-           estimate = poliscidata::fit.svyglm(direct_ols, 
+           estimate = poliscidata::fit.svyglm(srvy_ols, 
                                                digits = 3)) %>%
             slice(-4) %>%
   apa("Linear-Probability Model (OLS) Estimate shown in Table 8.1 on page 143")%>%
@@ -194,8 +183,6 @@ srvy_data %>%
 ### Second Difference
 
 ```{r}
-## using `srvyr`
-
 # select only "father NOT deceased"
 srvy_subset2 <- srvy_data %>%
   filter(fatherdec == "Father not deceased")
@@ -221,7 +208,7 @@ broom::tidy(srvy_ols2) %>%
 
 ```
 
-### Full Differnece-in-Differences Model
+### Full Difference-in-Differences Model
 
 ```{r}
 # model
@@ -244,7 +231,7 @@ broom::tidy(srvy_did) %>%
   )
 
 ```
-> UCLA calculated the first difference with the Stata code `lincom offer + offerxfatherdec  ( 1)  offer + offerxfatherdec = 0` - not sure how to do this in R other than manual estimation (as [above][Estimate t-test by hand]). 
+ 
 
 ## Impact Evaluation, Chapter 7
 
@@ -255,7 +242,6 @@ The following example comes from Gertler, Martinez, Premand, Rawlings, and Verme
 # load packages
 library(tidyverse)
 library(haven)
-library(psych)
 library(gt)
 library(janitor)
 library(apaTables)
@@ -276,7 +262,7 @@ impact_data <- read_dta("data/impact_evaluation/evaluation.dta")
  
 ```{r}
 impact_did <- lm(health_expenditures ~ round + eligible + eligible*round, data=impact_data %>%
-  filter(treatment_locality == 1)) %>%
+                 filter(treatment_locality == 1)) %>%
   apa.reg.table()
 
 apa(impact_did$table_body, impact_did$table_title)
