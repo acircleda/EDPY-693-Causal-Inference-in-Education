@@ -20,7 +20,7 @@ who were not enrolled in college as of May 1982 would not receive" financial aid
 
 
 
-```{r echo=TRUE}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 # load packages
 library(tidyverse)
 library(haven)
@@ -39,7 +39,7 @@ sssb <- read_dta("data/methods_matter/ch8_dynarski.dta") %>%
 
   * id: individual ID?
   * hhid: ?
-  * wt88: sampling weight
+  * wt88: sampling weights
   * coll: enrolled full-time in college by age 23 (1=yes | 0=no)
   * hgc23: highest grade completed by age 23 (10-19)
   * yearsr: year in which a senior
@@ -83,8 +83,13 @@ svymean(~coll, survey_data) %>%
 
 # using `srvyr`
 srvy_data %>%
-  summarize(mean = survey_mean(coll))
+  summarize(mean = survey_mean(coll)) %>%
+  apa()
 ```
+
+> **Interpretation**
+> 
+> About 49% of students enrolled in college.
 
 #### Cross tabulation of "fatherdec" by "yearsr"
 
@@ -105,7 +110,7 @@ sssb %>%
 
 #### Estimate means
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 # mean estimation by levels
 
 # using `srvyr`
@@ -114,7 +119,7 @@ srvy_data %>%
   summarize(means = survey_mean(coll)) %>%
   apa("Direct Estimate shown in Table 8.1 on page 143 using srvyr")
 ```
-#### Estime first difference by t-test
+#### Estimate first difference by t-test
 
 
 ```{r}
@@ -127,6 +132,10 @@ svyttest(coll~offer, direct_subset) %>%
   broom::tidy() %>%
   apa()
 ```
+
+> **Interpretation**
+> 
+> Those who in the pre-1981 cohort (those whose father was deceased and who had recieved an offer of support for college) had a 21 percentage point higher enrollment than those in the post-1981 cohort (deceased father with no offer of support). Note that this is the first difference and is not a valid final interpretation because of possibly innate differences between the groups. Thus, we need a second difference. (See Murnane et al., 2010, p. 154)
 
 #### Estimate t-test by hand
 
@@ -164,6 +173,8 @@ broom::tidy(srvy_ols) %>%
 
 ```
 
+> Interpretation is the same as the t-test above
+
 #### Graph of data
 ```{r}
 # it is easier to make a graph via `srvyr`, `dplyr` verbs, and `ggplot`
@@ -200,13 +211,17 @@ broom::tidy(srvy_ols2) %>%
            estimate = poliscidata::fit.svyglm(srvy_ols2, 
                                                digits = 3)) %>%
             slice(-4) %>%
-  apa("Table 8.2 on page 157, labeled “(Second Diff)”")%>%
+  apa("Table 8.2 on page 157, labeled (Second Diff)")%>%
   fmt_missing(
     columns = 2:5,
     missing_text = ""
   )
 
 ```
+
+> **Interpretation**
+> 
+> This model of second difference includes only those whose fathers were not decreased and thus models the trend of this group (the counterfactual group) and its enrollment trend, which had a modest decline of 3 percentage points.
 
 ### Full Difference-in-Differences Model
 
@@ -231,7 +246,10 @@ broom::tidy(srvy_did) %>%
   )
 
 ```
- 
+
+> **Interpretation**
+> 
+> This interaction of *offer x father deceased* indicates our difference-in-differences estimate, which means that those who recieved an offer of support and whose fathers were decreased had higher enrollment than those who did not recieve financial support with decreased fathers.
 
 ## Impact Evaluation, Chapter 7
 
@@ -250,7 +268,6 @@ source("data/apafunction.R")
 
 **Health Expenditures**
 
-
 In this method, you compare the change in health expenditures over time between enrolled and nonenrolled households in the treatment localities.
 
 ```{r, message=FALSE, warning=FALSE}
@@ -267,7 +284,12 @@ impact_did <- lm(health_expenditures ~ round + eligible + eligible*round, data=i
 
 apa(impact_did$table_body, impact_did$table_title)
 ```
-### Difference-in-Differences in a Multivariate Regression Framework
+
+> **Interpretation**
+> 
+> This model indicates a difference-in-differences estimate of US$8.16 lower health expenditures for those eligible to be enrolled in this program (*eligible*) in the follow-up period (*round* i.e., survey round).
+
+## Difference-in-Differences in a Multivariate Regression Framework
 
 ```{r}
 impact_did2 <- lm(health_expenditures ~ round*eligible + ., data =
@@ -279,6 +301,11 @@ impact_did2 <- lm(health_expenditures ~ round*eligible + ., data =
 apa(impact_did2$table_body, impact_did2$table_title)
 ```
 
+> **Interpretation**
+> 
+> This model has the same interpretation as above, only it includes many more statistical controls. Note that the DD estimate is actually slightly lower past the second decimal place. Note also the higher $R^2$.
+
+*****
 
 **References**
 

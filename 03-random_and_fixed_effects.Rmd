@@ -13,7 +13,7 @@
   
 **Success for All (SFA) Program**
 
-The following example comes from  Murnane and Willett (2010), chapter 7. The data was originally downloaded from the [UCLA Institute for Digital Research and Education](https://stats.idre.ucla.edu/stata/examples/methods-matter/chapter7/).
+The following example comes from  Murnane and Willett (2010), chapter 7. The data was originally downloaded from the [UCLA Institute for Digital Research and Education (IDRE)](https://stats.idre.ucla.edu/stata/examples/methods-matter/chapter7/).
 
 The data examines a subset of SFA data which focuses on first graders in their first year in which their school participated in the SFA program. The example focuses on a single outcome, a "Word-Attack" reading test score measured at the end of the first year.
 
@@ -44,6 +44,8 @@ wattack <- read_dta("data/methods_matter/ch7_sfa.dta")
   * sch_ppvt: school average of ppvt pretest score
   
 ## Descriptive Statistics
+
+The following charts reproduce the Stata output as displayed on the UCLA IDRE website.
 
 ### Overall
 
@@ -78,8 +80,7 @@ cbind(quantiles, obs, describe(wattack$wattack) %>%
   apa('Descriptive statistics for Word-Attack scores')
 ```
 
-> Why are kurtosis scores different?
-> UCLA states: "Notice the floor effect which cannot be resolved by a straightforward transformation." What does this mean?
+
 
 #### Box Plot of Word Attack Scores (overall)
 ```{r fig.width=6, height=6}
@@ -113,6 +114,10 @@ wattack %>%
 
 
 ```
+
+> **Note**
+> 
+> The above boxplot shows the between-school variability and is similar to visualizing the intraclass correlation.
 
 ### Descriptive Statistics by Experimental Condition (sfa)
 
@@ -213,7 +218,7 @@ The function and argument is as follows:
 
 Note: you would use `(0 | grouping variable)` for fixed effects.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 library(lme4) # for multilevel modelling
 library(performance)
 library(broom) # making a table from model
@@ -236,11 +241,18 @@ tidy(model1) %>%
 ```
 $WATTACK_{ji} = (\gamma_0 + u_j) + \epsilon_{ij}$
 
+> **Interpretations**
+>
+>  * *intercept* represents the grand mean of Word Attack scores across all schools
+>    * *sd_(Intercept).schid* - The residual variation for schools.
+>  * *sd_observation.Residual* - The residual variation for students.
+>  * Residuals, $R^2$, and ICC serve as baselines of comparison across the models
+
+
 #### Other R Functions
 
 
-  
-For other important values, you can use:
+For other important model statistics, you can use:
 
   * `parameters::p_value()` - to get p-values
     + Note: You can alos use the package `lmerTest`, which gives p-values but then cannot be transformed into a table
@@ -270,6 +282,16 @@ tidy(model2) %>%
 ```
 $WATTACK_{ji} = (\gamma_0 + u_j) + \gamma_1SFA_j + \epsilon_{ij}$
 
+> **Interpretations**
+>
+>  * *intercept* - The mean of schools in the control group
+>  * *sfa* - The impact of being in the SFA program on school Word Attacks scores (these schools had scores 4.366 points higher)
+>  * *sd_(Intercept).schid* - The residual for schools - This has decreased to some extent as *sfa* accounts for some of the variation
+>  * *sd_observation.Residual* - Residual variation for children remains the same, as SFA is a school-level variable
+>  * *ICC* has decreased somewhat and indicates the variation between schools is less when *sfa* is taken into account.
+>    + *sfa* accounts for 3.5% of the variance between schools
+>      + $\frac{.194-.201}{.201} = -.035$
+
 
 ### Model 3 - Conditional model that adds the main effect of covariate SCH_PPVT to Model #2, Table 7.1, pg. 114
 
@@ -291,6 +313,15 @@ tidy(model3) %>%
 ```
 
 $WATTACK_{ji} = (\gamma_0 + u_j) + \gamma_1SFA_j + \gamma_2SCH_PPVT_j + \epsilon_{ij}$
+
+> **Interpretations**
+>
+>  * *intercept* - The mean of schools in the control group, controlling for pretest scores
+>  * *sfa* - The impact of being in the SFA program on school Word Attacks scores, controlling for pretest scores (these schools had scores 3.569 points higher)
+>  * *sch_ppvt* - school pre-test scores - these are included for statistical control and not generally needed for interpretation
+>  * *sd_(Intercept).schid* - The residual for schools - This has decreased to some extent as *sfa* and *sch_ppvt* accounts for some of the variation
+>  * *sd_observation.Residual* - Residual variation for children remains the same, as SFA is a school-level variable
+  * *ICC* has decreased somewhat and indicates the variation between schools is less when *sfa* and *sch_ppvt* are taken into account.
 
 ### Model 4 - Model #3 using the within-school averages of prior ppvt score (new variable schavgppvt) from the analytic subsample instead of sch_ppvt. (Not shown in text, this analysis is mentioned in footnote 15 on page 127.) - from UCLA
 
@@ -314,6 +345,10 @@ tidy(model4) %>%
   )
 
 ```
+
+> **Model Notes**
+>
+> This model includes within-school averages of pre-test scores rather than all pre-test scores. This variable normalizes within-school variation and thus accounts for between-school variation in a different way. ??
 
 ## Model Variations
 
@@ -347,6 +382,12 @@ tidy(model5) %>%
 
 ```
 
+> **Model Notes**
+>
+> This model includes *ppvt_devgm*, which is a variable in which individual pre-test scores are centered around the grand mean. This changes the meaning of the intercept to one that is adjusted for invividual-level differences and refers to someone with the control group and individuals with average pretest scores.
+
+
+
 ### Controlling for individual-level ppvt by including deviations of individual scores from school-average scores (new variable ppvt_devsm) and school-average scores from the grand mean (new variable schavgppvt_devgm).
 
 ```{r}
@@ -373,6 +414,14 @@ tidy(model6) %>%
   )
 ```
 
+> **Model Notes**
+> 
+> This model includes *ppvt_devsm*, which is a variable that centers pretest scores around each school's average score. This helps to account for within-school variation. In addition, it includes *schavgppt_devgm*, which is a variable the centers school-average pre-test scores around the grand mean, helping to account for variation between-schools.
+> 
+> This allows the regression coefficients to be used as pure within-group and between-group estimates.
+
+?? How does this affect the interpretation of the regression coefficients?? !!!
+
 ### Controlling for school-average ppvt deviated from the grand mean (schavgppvt_devgm).
 
 
@@ -397,7 +446,10 @@ tidy(model7) %>%
     missing_text = ""
   )
 ```
-> fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
+
+> **Model Notes**
+>
+> This model includes *schavgppvt_devgm	*, which is a variable that centers school-average pretest scores around the grand mean. This helps to account for / control for within-school variation.
 
 ## Model Comparison Tables
 
@@ -567,26 +619,8 @@ tribble(
   * r2 = $R_{total}^2$
   * icc = Intraclass correlation, $\hat\rho$
   
-<!--   # load data -->
-<!-- wattack <- read_dta("data/methods_matter/ch7_sfa.dta") -->
+*****
 
-<!-- # generate new variables following STATA example: -->
-<!-- #### bysort schid: egen schavgppvt = mean(ppvt) -->
-<!-- #### gen ppvt_devsm = ppvt-schavgppvt  -->
-<!-- #### gen schavgppvt_devgm = schavgppvt-90.4006 -->
-<!-- #### xtreg wattack sfa ppvt_devsm schavgppvt_devgm, i(schid) -->
+**References**
 
-
-<!-- model6_data <- wattack %>% -->
-<!--   group_by(schid) %>% -->
-<!--   mutate(schavgppvt = mean(ppvt)) %>% -->
-<!--   ungroup() %>% -->
-<!--   mutate(ppvt_devsm = ppvt-schavgppvt, -->
-<!--          schavgppvt_devgm = schavgppvt-90.4) -->
-
-<!-- cor(model6_data$ppvt_devsm, model6_data$ppvt) -->
-
-<!-- model6 <- lmer(wattack ~ sfa + ppvt_devsm + schavgppvt_devgm + (1 | schid), data = model6_data)  -->
-<!--                 # school average deviation from grand mean -->
-
-<!-- car::vif(model6) -->
+Murnane, R. J., & Willett, J. B. (2010). *Methods matter: Improving causal inference in educational and social science research*. Oxford University Press.

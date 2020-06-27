@@ -126,6 +126,11 @@ broom::tidy(mm4_t) %>%
   apa()
 ```
 
+
+> **Interpretation**
+> 
+> Students who recieved an offer of a voucher had significantly higher achivement scores.
+
 ## Simple Linear Regression 
 
 (Strategy 2, Table 4.1, pg 49)
@@ -145,6 +150,10 @@ apa.aov.table(mm4_model1)[[3]] %>%
   apa()
 ```
 
+> **Interpretation**
+> 
+> Students who recieved an offer of a voucher had significantly higher achivement scores (4.9 points higher).
+
 ## Multiple Linear Regression 
 
 (Strategy 3, Table 4.1, pg 49)
@@ -159,6 +168,12 @@ apa.reg.table(mm4_model2)[[3]] %>% apa()
 ```{r}
 apa.aov.table(mm4_model2)[[3]] %>% apa()
 ```
+
+> **Interpretation**
+> 
+> Students who recieved an offer of a voucher had significantly higher achivement scores (4.1 points higher) controlling for pre-test scores. The model with the pre_ach covariate is accounts for more variability (is less biased) as indicated by the smaller Mean Square term of 206.58.
+
+*****
 
 **References**
 

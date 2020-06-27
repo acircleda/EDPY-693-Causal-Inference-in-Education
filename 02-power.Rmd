@@ -4,6 +4,7 @@
 # load packages
 library(tidyverse)
 library(haven)
+library(apaTables)
 source("data/apafunction.R") #for APA-style tables
 
 #load data
@@ -32,7 +33,7 @@ broom::tidy(mm4_t) %>%
 
 Using the `effectsize` package:
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 library(effectsize)
 
 # use cohens_d() from effectsize
@@ -44,6 +45,10 @@ cohens_d(nysp_vouchers$post_ach, as.factor(nysp_vouchers$voucher)) %>%
   rename("Cohen's d"= Cohens_d) %>%   # rename
   apa("Effect size for t-test")
 ```
+
+> **Interpretation**
+> 
+> Students with an opportunity to recieve a voicher were **.25 standard deviations** higher than students who did not recieve an opportunity to get a voucher.
 
 ## Calculating Power
 
@@ -72,6 +77,10 @@ tribble(
 
 ```
 
+> **Interpretation**
+> 
+> This is a post-hoc power analysis. The study above had a power of .82. That is, it had an 82% chance to detect and effect if there was once and there was a 18% chance of making a type II error (rejecting a null hypothesis when there is an effect).
+
 #### Simple Linear Regression
 
 Recall Strategy 2, Table 4.1, pg. 49):
@@ -80,7 +89,7 @@ Recall Strategy 2, Table 4.1, pg. 49):
 #model
 mm4_model1 <- lm(post_ach ~ voucher, data=nysp_vouchers)
 ```
-```{r echo=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 apa.reg.table(mm4_model1)[[3]] %>%
   apa("Simple Linear Regression")
 apa.aov.table(mm4_model1)[[3]] %>% 
@@ -93,12 +102,12 @@ Use `pwr.f2.test(u =, v = , f2 = , sig.level = , power = )` where,
 
   * u = numerator or *df* of predictors (e.g. number of predictors)
   * v = denominator or *df* for the residual
-  * f2 = an effect size
+  * f2 = Cohen's $f^2$, which is equal to $\frac{R^2}{1-R^2}$
 
 Based on the regression results, the NYSP simple linear regression model had the following power:
 
 ```{r}
-nysp_regpower <- pwr.f2.test(u = 1, v = 519, f2 = .016, sig.level = .05, power = )
+nysp_regpower <- pwr.f2.test(u = 1, v = 519, f2 = .016/(1-.016), sig.level = .05, power = )
 ```
 ```{r echo=FALSE}
 tribble(
@@ -107,6 +116,10 @@ tribble(
 ) %>%
   apa("Power of the NYSP Voucher Simple Linear Regression Test")
 ```
+
+> **Interpretation**
+> 
+> Because no covariates were used, the results here are the same as the t-test above.
 
 ##### Power for NYSP Multiple Regression
 
@@ -122,7 +135,7 @@ apa.aov.table(mm4_model2)[[3]] %>% apa()
 Based on the regression results, the NYSP multiple regression model had the following power:
 
 ```{r}
-nysp_regpower_2 <- pwr.f2.test(u = 2, v = 518, f2 = .442, sig.level = .05, power = )
+nysp_regpower_2 <- pwr.f2.test(u = 2, v = 518, f2 = .442/(1-.442), sig.level = .05, power = )
 ```
 ```{r echo=FALSE}
 tribble(
@@ -132,6 +145,9 @@ tribble(
   apa("Power of the NYSP Voucher Multiple Regression Test")
 ```
 
+> **Interpretation**
+> 
+> The post-hoc test of power indicated that the large sample size and large $R^2$ had a power of 1, or a 100% chance to detect an effect if there was one.  
 
 
 ## Effect Size Calculator
@@ -154,6 +170,8 @@ ss.aipe.R2(Population.R2 = .442, conf.level = .95, width=.10, p=2, Random.Predic
 ```
 
 To find an $R^2$ of .442${_{CI}}_{[.3-.5]}$, you would need the sample size indicated above (661). The actual sample size that found the $R^2$ of .442 was 520. The estimate was not exact, but was very close.
+
+*****
 
 **References**
 
