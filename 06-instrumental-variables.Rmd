@@ -1,0 +1,513 @@
+# 6. Instrumental-Variables Estimation
+
+## Key Concepts
+
+  * Instrumental-variable estimation (IVE) is used to "carve out" the exogenous part of the variability in a endogenous predictor.
+    + An instrumental variable (IV) should be related to the predictor
+    + An IV should **not** be related to the residuals of the outcome
+      + There should be no direct path from instrument to outcome. The path should always be *through* the predictor.
+  * IVE is less precise and thus larger standard errors are often obtained
+    + It is recommend to use robust standard error estimation
+  * IVs can be estimated with two-stage least squares (2SLS) or simultaneous equation modeling (SEM).
+
+    
+## Methods Matter, Chapter 10
+
+The following example comes from Murnane and Willett (2010), chapter 10.
+
+**Education and Civic Engagement**
+
+Dee's (2004) study looks at the causal impact of educational attainment on civic participation, specifically registering to vote
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# load packages
+library(tidyverse)
+library(haven)
+library(gt)
+library(janitor)
+library(psych)
+library(apaTables)
+library(broom)
+library(modelsummary)
+source("data/apafunction.R")
+source("data/apa_msummary.R")
+source("data/corstars.R")
+```
+
+```{r, message=FALSE, warning=FALSE}
+#load and prep data
+dee <- read_dta("data/methods_matter/ch10_dee.dta")
+```
+
+**Variables**:
+
+  * schoolid: a random school ID
+  * hispanic: 1 = yes | 0 = no
+  * college: attended a junior, community or 4-year college by 1984 (1 = yes | 0 = no)
+  * black: 1 = yes | 0 = no 
+  * otherrace: 1 = yes | 0 = no
+  * female: 1 = yes | 0 = no
+  * register: currently registered to vote (1 = yes | 0 = no)
+  * distance: miles from participant's high school to the nearest 2-year college
+
+### Descriptives
+
+From Table 10.1 on page 207.
+
+```{r message=FALSE, warning=FALSE}
+dee %>%
+  select(register) %>%
+  summarize(n = n(),
+            mean = mean(register),
+            sd = sd(register),
+            variance = var(register),
+            skewness = skew(register),
+            kurtosis = kurtosi(register)) %>%
+  mutate(across(where(is.numeric), round, 3)) %>%
+  apa("Is respondent currently registered to vote?")
+
+dee %>%
+  select(college) %>%
+  summarize(n = n(),
+            mean = mean(college),
+            sd = sd(college),
+            variance = var(college),
+            skewness = skew(college),
+            kurtosis = kurtosi(college)) %>%
+  mutate(across(where(is.numeric), round, 3)) %>%
+  apa("Attended junior, community or 4year college by 1984?")
+
+dee %>%
+  group_by(register, college) %>%
+  summarize(count = n()) %>%
+  ungroup() %>%
+  apa("Crosstab overview")
+  
+```
+
+### Tests of a Valid Instrument
+
+To be a valid instrument, it must meet three criteria:
+
+  * Relevance: Instrument is correlated with question predictor, *college*
+  * Exclusion: Instrument is correlated with outcome only through the *college* variable
+  * Exogeneity: Instrument isn’t correlated with anything else in the model (i.e. omitted variables)
+    + This criteria is met through theory/substantive knowledge
+  
+#### Relevance
+
+Correlate outcome, predictor, and instrument:
+
+```{r}
+dee %>%
+  select(register, distance, college) %>%
+  corstars(method="pearson") %>%
+  rownames_to_column("variable") %>%
+  apa("Correlation between COLLEGE (predictor), DISTANCE (IV), and REGISTER (outcome)")
+```
+
+> **Interpretations**
+>
+> * *distance* (the instrument) has a small but positive relationship with the question predictor *college*. 
+>  + An instrumental variable must share variation with the question predictor.
+> * *distance*  has a very small, negative correlation with *register* (the outcome). 
+>  + An instrumental variable should not be correlated with the outcome or its residuals. Here, there is a very weak correlation. The relationship with the residuals will still need to be tested.
+
+
+```{r}
+msummary(lm(register ~ distance, data=dee)) %>% 
+  as.data.frame() %>%
+  slice(-7:-10) %>%
+  apa("Another test (OLS regression) of the relationship between instrument and outcome")
+```
+
+> **Interpretation**
+>
+> *distance* is a poor predictor of *register*. It has a negative and non-significant coefficient.
+
+#### Exclusion
+
+> Do we test this by correlating DISTANCE with model residuals?
+
+
+### Naive OLS Regression Model
+
+
+```{r}
+ive_naive <- lm(register ~ college, data=dee)
+
+tidy(ive_naive) %>%
+  mutate(across(where(is.numeric), round, 3)) %>%
+  apa("Outcome=register from Table 10.1 on page 207.")
+apa.aov.table(ive_naive)[[3]] %>% 
+  apa()
+
+```
+
+### Two-Stage Least Squares
+
+#### Method One: Using `lm`
+
+Following an example from [https://evalf19.classes.andrewheiss.com/class/11-class/](https://evalf19.classes.andrewheiss.com/class/11-class/)
+
+```{r}
+ive_stage1 <- lm(college ~ distance, data=dee)
+
+tidy(ive_stage1) %>%
+  mutate(across(where(is.numeric), round, 3)) %>%
+  apa("1st Stage: Outcome = COLLEGE")
+
+ive_predicted <- broom::augment_columns(ive_stage1, dee) %>% 
+  rename(college_predicted = .fitted)
+
+ive_stage2 <- lm(register ~ college_predicted, data=ive_predicted)
+
+tidy(ive_stage2) %>%
+  mutate(across(where(is.numeric), round, 3)) %>%
+  apa("2nd Stage: Outcome = REGISTER")
+
+```
+
+
+#### Method Two: Using `ivreg`
+
+Following instructions from [https://rpubs.com/wsundstrom/t_ivreg](https://rpubs.com/wsundstrom/t_ivreg)
+
+```{r message=FALSE, warning=FALSE}
+library(ivpack)
+
+ive_model1_ivreg <- ivreg(register ~ college | distance, data=dee)
+
+tidy(ive_model1_ivreg) %>%
+  mutate(across(where(is.numeric), round, 3)) %>%
+  apa("2SLS using ivreg")
+
+
+```
+
+### Simultaneous Equations Modeling
+
+Using `systemfit`. See [https://cran.r-project.org/web/packages/systemfit/vignettes/systemfit.pdf](https://cran.r-project.org/web/packages/systemfit/vignettes/systemfit.pdf)
+
+```{r message=FALSE, warning=FALSE}
+library(systemfit)
+
+ive_sem_1 <- college ~ distance
+ive_sem_2 <- register ~ college
+sys <- list(ive_sem_1, ive_sem_2)
+instr <- ~distance
+
+ive_sem <- systemfit(sys, inst=instr, method="2SLS", data=dee)
+summary(ive_sem)
+```
+
+> The book never talks about 3SLS, but the Methods Matter includes it. However, I only see two stages. In addition, changing the method to 3SLS does not change the model
+
+### Side-by-Side Comparison
+
+Note: SEM model *not* added to the following table.
+
+```{r}
+msummary(list(
+ "Naive" = ive_naive,
+ "First Stage" = ive_stage1,
+ "Second Stage" = ive_stage2,
+ "2SLS with ivreg" = ive_model1_ivreg),
+  stars = T) %>%
+  apa_msummary("Side-by-Side Comparison of IVE Methods")
+  
+```
+
+### Diagnostics
+
+Recall that the instrument should not be correlated with the residuals of the outcome.
+
+```{r}
+ive_diagnostic <- cbind(dee$distance, augment(ive_stage2)$.resid) %>%
+  as.data.frame() %>%
+  rename("distance" = V1,
+         "register_residuals" = V2)
+
+ive_diagnostic %>%
+  corstars(method="pearson") %>%
+  rownames_to_column("variable") %>%
+  apa("Correlation between COLLEGE (predictor), DISTANCE (IV), and REGISTER (outcome)")
+
+```
+
+### IVE with Covariates
+
+```{r}
+ive_cov_stage1 <- lm(college ~ black + hispanic + otherrace + distance, data=dee)
+
+# tidy(ive_cov_stage1) %>%
+#   mutate(across(where(is.numeric), round, 3)) %>%
+#   apa("1st Stage: Outcome = COLLEGE")
+
+ive_cov_predicted <- broom::augment_columns(ive_cov_stage1, dee) %>% 
+  rename(college_predicted = .fitted)
+
+ive_cov_stage2 <- lm(register ~ college_predicted + black + hispanic + otherrace, data=ive_cov_predicted)
+
+# tidy(ive_cov_stage2) %>%
+#   mutate(across(where(is.numeric), round, 3)) %>%
+#   apa("2nd Stage: Outcome = REGISTER")
+
+msummary(list(
+  "Stage 1" = ive_cov_stage1,
+  "Stage 2" = ive_cov_stage2),
+  stars = T) %>%
+  apa_msummary("First and Second Stage Least Squares Regressions - IVE with Covariates")
+```
+
+### IVE with Covariates and Interactions
+
+```{r}
+ive_covint_stage1 <- lm(college ~ distance*black + distance*hispanic + distance*otherrace, data=dee)
+
+# tidy(ive_cov_stage1) %>%
+#   mutate(across(where(is.numeric), round, 3)) %>%
+#   apa("1st Stage: Outcome = COLLEGE")
+
+ive_covint_predicted <- broom::augment_columns(ive_covint_stage1, dee) %>% 
+  rename(college_predicted = .fitted)
+
+ive_covint_stage2 <- lm(register ~ college_predicted + college_predicted*black + college_predicted*hispanic + college_predicted*otherrace, data=ive_covint_predicted)
+
+# tidy(ive_cov_stage2) %>%
+#   mutate(across(where(is.numeric), round, 3)) %>%
+#   apa("2nd Stage: Outcome = REGISTER")
+
+msummary(list(
+  "Stage 1" = ive_covint_stage1,
+  "Stage 2" = ive_covint_stage2),
+  stars = T) %>%
+  apa_msummary("First and Second Stage Least Squares Regressions - IVE with Covariates and Interactions")
+
+```
+> The book and UCLA performs separate First Stages for each interaction (ie. outcome: college x black ~ black, distance x black). Is this necessary? The second stage above gets the same results.
+
+## Methods Matter, Chapter 11
+
+Chapter 11 extends IVE to situations in which perfect compliance with treatment conditions is not possible. It uses the original assignent as an instrument and determines the local average treatment effect (LATE), which estimates the impact for those who complied with the assignment (or promotion). It can be used to attempt to estimate the impact not of the *offer* (or ITT: intention-to-treat) but *participation* in the program (or TOT: teatement-on-the-treated).
+
+The following example comes from Murnane and Willett (2010), chapter 11.
+
+**PACES Colombian Scholarship Program**
+
+PACES offered scholarships to students living in low-income neighborhoods to help pay for education at private secondary
+schools. However, there were some in the sample who did not win the lottery yet still recieved financial aid of some form and enrolled in provate schools.
+
+
+```{r, message=FALSE, warning=FALSE}
+#load and prep data
+paces <- read_dta("data/methods_matter/ch11_colombia_voucher.dta") %>%
+  rename("won_lottery" = "won_lottry")
+```
+
+**Variables**:
+
+  * id: a random ID
+  * won_lottery: 1 = yes | 0 = no
+  * male: 1 = yes | 0 = no)
+  * base_age 
+  * finish8th: 1 = yes | 0 = no
+  * use_fin_aid: 1 = yes | 0 = no
+
+### Descriptives
+
+Overall:
+```{r}
+paces %>% 
+  describe() %>%
+  as.data.frame() %>%
+  select(n, mean, sd, min, max) %>%
+  rownames_to_column("variable") %>%
+  slice(-1) %>%
+  mutate(across(where(is.numeric), round, 3)) %>%
+  apa("Descriptive statistics for Table 11.1 on page 270.")
+```
+
+Reproducing Table 11.1, p. 270:
+```{r}
+paces_desc<-paces %>% 
+  describe() %>%
+  as.data.frame()
+
+paces_desc_by <- paces %>%
+  describeBy(group = paces$won_lottery) 
+
+paces_desc_by[["0"]] %>%
+  as.data.frame() -> paces0
+
+paces_desc_by[["1"]] %>%
+  as.data.frame() -> paces1
+
+tribble(
+  ~Variable, ~"Sample Mean", ~"WON_LOTTERY=1", ~"WON_LOTTERY=2",
+  "Outcome: FINISH8TH", paces_desc[5,3], paces0[5,3], paces1[5,3],
+  "Endogenous Question Predictor: USE_FIN_AID",paces_desc[6,3], paces0[6,3], paces1[6,3],
+  "Instrument: WON_LOTTERY", paces_desc[2,3], NULL, NULL,
+  "Covariate: BASE_AGE", paces_desc[4,3], paces0[4,3], paces1[4,3],
+  "Covariate: MALE", paces_desc[3,3], paces0[3,3], paces1[3,3]
+) %>%
+  mutate(across(where(is.numeric), round, 3)) %>%
+  apa("Sample means on the outcome variable, question predictor, instrument, and covariates, for a sample of students from Bogota, Colombia, who participated in the 1995 lottery to obtain a government-funded private-school tuition scholarship, overall and by whether the child was offered financial aid")
+```
+> What kind of T-test was done here?
+
+### Assumption Checks
+
+Testing the relevance of the instrument:
+
+```{r}
+paces %>%
+  select(won_lottery, finish8th, use_fin_aid, male, base_age) %>%
+  corstars(method="pearson") %>%
+  rownames_to_column("variable") %>%
+  apa("Correlation between use_fin_aid (predictor), won_lottery (IV), finish8th (outcome), and male and base_age (covariates)")
+```
+> IV has low correlation to outcome. Is that OK?  p < .0001
+
+### Naive and 2SLS Regressions
+
+```{r}
+paces_naive <- lm(finish8th ~  + male + base_age, data=paces)
+
+paces_first <- lm(use_fin_aid ~ male + base_age + won_lottery, data=paces)
+
+paces_predicted <- broom::augment_columns(paces_first, paces) %>% 
+  rename(use_fin_aid_predicted = .fitted)
+
+paces_second <- lm(finish8th ~ use_fin_aid_predicted + male + base_age + won_lottery, data=paces_predicted)
+
+gm <- gof_map
+gm$omit[gm$raw == 'statistic'] <- FALSE 
+gm$clean[gm$raw == 'statistic'] <- 'F'
+
+
+msummary(list(
+  "Naive" = paces_naive,
+  "First Stage" = paces_first,
+  "Second Stage" = paces_second),
+  stars = T, 
+  gof_map = gm) %>%
+  apa_msummary()
+```
+
+## Impact Evaluation, Chapter 5: Estimation of Intent-to-Treat and Local Average Treatment Effect in the Presence of Noncompliance
+
+In this context, the program is randomized at the village level. While everyone is eligible for the program in treatment communities, not everyone participates.
+
+```{r}
+#load data
+impact_ive <- read_dta("data/impact_evaluation/evaluation.dta")
+```
+
+### Intent-to-Treat Effect - Naive Model
+
+```{r}
+impact_ive_naive <- lm(health_expenditures ~ treatment_locality,
+                       data = impact_ive %>%
+                         filter(round ==1))
+
+msummary(impact_ive_naive) %>% 
+  as.data.frame() %>%
+  slice(-7:-10) %>%
+  apa("Naive Model")
+  
+```
+
+> **Interpretations**
+>
+> The estimate for the regression coefficient (δ) is -6.4, indicating that households in villages where HISP was offered on average spent $6.4 less on health expenditures than households in villages where HISP was not offered.
+>
+> Recall that there has been noncompliance and thus this ITT estimate is not accurate.
+
+### Local Average Treatment Effect - 2SLS IV Model
+
+Here, the instrumental variable (*treatment_locality*) takes the value of 1 if HISP was randomly offered to households in a given locality, and 0 otherwise.
+
+```{r}
+impact_ive %>%
+  filter(round == 1) %>%
+  select(health_expenditures, enrolled, treatment_locality) %>%
+  corstars(method="pearson") %>%
+  rownames_to_column("variable") %>%
+  apa("Correlation between instrument, predictor, and outcome")
+
+impact_ive_stage1 <- lm(enrolled ~ treatment_locality,
+                        data = impact_ive %>%
+                         filter(round ==1))
+
+impact_ive_pred <- broom::augment_columns(impact_ive_stage1, impact_ive %>% filter(round==1)) %>% 
+  rename(enrolled_pred = .fitted)
+
+impact_ive_stage2 <- lm(health_expenditures ~ enrolled_pred,
+                        data=impact_ive_pred)
+
+
+
+msummary(list(
+  "First Stage" = impact_ive_stage1,
+  "Second Stage" = impact_ive_stage2),
+  stars = T, 
+  gof_map = gm) %>%
+  apa_msummary()
+```
+
+> **Interpretation**
+>
+> *From Impact Evaluation*: "The coefficient, 0.598 indicates that approximately 59.8% of households enrolled in HISP when the program was offered in their locality. The second stage regression uses the predicted enrollment from the first stage as a regressor to explain variation in the outcomes of interest. The estimated coefficient suggests that participation in the HISP program lowers health expenditures by $10.7."
+
+
+
+## Impact Evaluation, Chapter 5: Instrumental Variables and Randomized Promotion
+
+In this context, everyone is eligible for the program. You compare what happens in promoted and non-promoted villages.
+
+```{r}
+impact_promo_1 <- lm(enrolled_rp ~ promotion_locality,
+                     data=impact_ive %>%
+                       filter(round==1))
+
+impact_promo_pred <- broom::augment_columns(impact_promo_1, impact_ive %>% filter(round==1)) %>% 
+  rename(enrolled_pred = .fitted)
+
+impact_promo_2 <- lm(health_expenditures ~ enrolled_pred,
+                        data=impact_promo_pred)
+
+#with robust estimators based on https://evalf19.classes.andrewheiss.com/class/12-class/
+library(estimatr)
+
+impact_promo_robust <- iv_robust(health_expenditures ~ enrolled_rp | promotion_locality, data=impact_ive %>%
+                       filter(round==1))
+
+msummary(list(
+  "First Stage" = impact_promo_1,
+  "Second Stage" = impact_promo_2,
+  "2SLS with Robust Standard Errors" = impact_promo_robust),
+  stars = T, 
+  gof_map = gm) %>%
+  apa_msummary()
+```
+
+> Is HC2 the correct SE? What are the differences?
+
+> **Interpretation**
+>
+> From *Impact Evaluation*: "The first stage identifies the effects of the promotion activities on program take-up. In this case, promotion activities increase program take-up by 40.8 percent. In the second stage, we regress the outcome variable on the predicted program participation from the first stage to obtain the LATE estimates. In this case, the results suggest that participation in the HISP program lowers health expenditures by $9.5."
+
+*****
+
+**Additional resources:**
+
+[https://evalf19.classes.andrewheiss.com/class/11-class/](https://evalf19.classes.andrewheiss.com/class/11-class/)
+
+[https://evalf19.classes.andrewheiss.com/class/12-class/](https://evalf19.classes.andrewheiss.com/class/12-class/)
+
+**References**
+
+Gertler, P. J., Martinez, S., Premand, P., Rawlings, L. B., & Vermeersch, C. M. (2016). *Impact evaluation in practice*. The World Bank.
+
+Murnane, R. J., & Willett, J. B. (2010). *Methods matter: Improving causal inference in educational and social science research*. Oxford University Press.

@@ -67,6 +67,7 @@ apa <- function(x) {
 
 ```{r, descriptives}
 describe(nysp_vouchers) %>%
+  as.data.frame() %>%
   mutate(across(is.numeric, round, 3)) %>%
   select(-mad, -min, -max, -range, -trimmed) %>%
   apa()

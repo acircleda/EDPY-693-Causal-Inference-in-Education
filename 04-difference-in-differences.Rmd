@@ -182,7 +182,7 @@ srvy_data %>%
   group_by(fatherdec, offer) %>% 
   summarize(means = survey_mean(coll)) %>%
   ungroup() %>%
-  mutate(offer = recode(offer,
+  mutate(offer = dplyr::recode(offer,
                         `1` = "Pre-1981", 
                         `0` = "Post-1981")) %>%
   ggplot()+

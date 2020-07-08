@@ -68,7 +68,8 @@ obs <- rbind(wattack %>% select(wattack) %>%
   
   
 # combine in a nice table
-cbind(quantiles, obs, describe(wattack$wattack) %>% 
+cbind(quantiles, obs, describe(wattack$wattack) %>%
+        as.data.frame() %>%
   mutate(variance = var(wattack$wattack)) %>%
   select(n, mean, sd, variance, skew, kurtosis) %>%
   pivot_longer(n:kurtosis, names_to = "measure", values_to="statistic") %>%
@@ -144,6 +145,7 @@ obs_sfa_0 <- rbind(wattack %>%
   
 # combine in a nice table
 cbind(quantiles_sfa_0, obs_sfa_0, describe(subset(wattack, sfa==0)$wattack) %>% 
+        as.data.frame() %>%
   mutate(variance = var(wattack$wattack)) %>%
   select(n, mean, sd, variance, skew, kurtosis) %>%
   pivot_longer(n:kurtosis, names_to = "measure", values_to="statistic") %>%
@@ -180,6 +182,7 @@ obs_sfa_1 <- rbind(wattack %>%
   
 # combine in a nice table
 cbind(quantiles_sfa_1, obs_sfa_1, describe(subset(wattack, sfa==1)$wattack) %>% 
+        as.data.frame() %>%
   mutate(variance = var(wattack$wattack)) %>%
   select(n, mean, sd, variance, skew, kurtosis) %>%
   pivot_longer(n:kurtosis, names_to = "measure", values_to="statistic") %>%
@@ -348,7 +351,9 @@ tidy(model4) %>%
 
 > **Model Notes**
 >
-> This model includes within-school averages of pre-test scores rather than all pre-test scores. This variable normalizes within-school variation and thus accounts for between-school variation in a different way. ??
+> This model includes within-school averages of pre-test scores rather than all pre-test scores. This variable normalizes within-school variation and thus accounts for between-school variation in a different way. Intercept is not adjusted adjusted for school differences 
+>
+> *Schavppvt* acts as a type of fixed effect (e.g. holding within-school averages constant) as it acts as a kind of grouping variable that serves to group individuals by school.
 
 ## Model Variations
 
@@ -384,7 +389,7 @@ tidy(model5) %>%
 
 > **Model Notes**
 >
-> This model includes *ppvt_devgm*, which is a variable in which individual pre-test scores are centered around the grand mean. This changes the meaning of the intercept to one that is adjusted for invividual-level differences and refers to someone with the control group and individuals with average pretest scores.
+> This model includes *ppvt_devgm*, which is a variable in which individual pre-test scores are centered around the grand mean. This changes the meaning of the intercept to one that is adjusted for school-level differences and refers to someone with the control group and
 
 
 
@@ -419,8 +424,6 @@ tidy(model6) %>%
 > This model includes *ppvt_devsm*, which is a variable that centers pretest scores around each school's average score. This helps to account for within-school variation. In addition, it includes *schavgppt_devgm*, which is a variable the centers school-average pre-test scores around the grand mean, helping to account for variation between-schools.
 > 
 > This allows the regression coefficients to be used as pure within-group and between-group estimates.
-
-?? How does this affect the interpretation of the regression coefficients?? !!!
 
 ### Controlling for school-average ppvt deviated from the grand mean (schavgppvt_devgm).
 
@@ -619,6 +622,8 @@ tribble(
   * r2 = $R_{total}^2$
   * icc = Intraclass correlation, $\hat\rho$
   
+
+
 *****
 
 **References**

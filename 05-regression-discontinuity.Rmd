@@ -1,0 +1,353 @@
+# 5. Regression Discontinuity
+
+## Key Concepts
+
+  * Regression discontinuity is used to estimate the effect of a program when the following conditions are met:
+    + There is a discrete cut-off (e.g. score, poverty index, class size) that divides the sample into treatment and control groups.
+    + The cut-off is based on a continuous rather than categorical variable.
+  * Regression discontinuity provides esitmates for those around the cut-off score, not observations far from it.
+  * It answers questions such as "should the program be cut or expanded at the margin?
+
+    
+## Methods Matter, Chapter 9
+
+The following example comes from  Murnane and Willett (2010), chapter 9.
+
+**Maimonides’ Rule and the Impact of Class Size on Student Achievement**
+
+This data looks at a natural experiment in Israel in which class sizes must be split if they exceed 40 students, making those over 20+, and, thus, smaller class sizes.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# load packages
+library(tidyverse)
+library(haven)
+library(gt)
+library(janitor)
+library(apaTables)
+source("data/apafunction.R")
+```
+
+```{r, message=FALSE, warning=FALSE}
+#load and prep data
+class_size <- read_dta("data/methods_matter/ch9_angrist.dta")
+```
+ 
+*Note*: observations are at the classroom-level
+
+**Variables**:
+
+  * read: verbal score (class average)
+  * size: average class cohort size during September enrollment
+  * intended_classize: average intended class size for each school
+  * observed_classize: average actual size for each school
+  
+### Descriptives
+
+```{r}
+as_tibble(psych::describe(class_size), rownames = "variable") %>%
+  mutate(across(where(is.numeric), round, 3)) %>%
+    select(variable, n, mean, sd, min, max) %>%
+  apa()
+```
+
+#### Box plots of classrooms within analytic window
+
+
+```{r}
+class_size %>%
+  filter(between(size, 36, 46)) %>%
+  ggplot()+
+  geom_boxplot(aes(x=as.factor(size), y=read))
+```
+
+
+	
+```{r message=FALSE, warning=FALSE}
+class_size %>%
+  filter(between(size, 36, 46)) %>%
+  group_by(size) %>%
+  summarize(freq = n(),
+            mean_intended = mean(intended_classize, na.rm=T),
+            mean_observed = mean(observed_classize, na.rm=T),
+            mean_read = mean(read, na.rm=T),
+            sd_read = sd(read, na.rm = T)) %>%
+  apa("Table 9.1 on page 168")
+```
+
+#### Difference Analysis for 40/41 Class Size
+
+Difference analysis discussed on page 172.
+
+##### Create cut-off groups
+
+```{r}
+class_size<-class_size %>%
+  mutate(small = ifelse(size<=40, 0, 1))
+```
+
+##### T-test of small (0) and large (1) class sizes
+
+```{r}
+class_ttest1 <- class_size %>%
+  filter(size == 40 | size == 41)
+t.test(class_ttest1$read ~ class_ttest1$small, var.equal = T) %>%
+  broom::tidy() %>%
+  mutate(across(is.numeric, round, 3)) %>%
+  rename("small class" = estimate1,
+         "large class" = estimate2) %>%
+  apa("T-test for class sizes of 40 or 41")
+```
+
+> **Interpretation**
+>
+> This t-test compare class sizes of only 40 students in the small class size group and 41 in the large class size group. The results show that large classes (with 41 students) had higher mean scores, but this result was not statistically significant.
+
+#### Difference Analaysis of Four Class Sizes
+
+Difference analysis discussed starting on page 173. (Output not shown in text.)
+
+```{r message=FALSE, warning=FALSE}
+class_four <- class_size %>%
+  filter(size>=38 & size<=41) %>%
+  mutate(group = case_when(
+    size == 38 ~ 1,
+    size == 39 ~ 2,
+    size == 40 ~ 3,
+    size == 41 ~ 4
+  ))
+
+class_four %>%
+  group_by(group) %>%
+  summarize(N = n(),
+            mean = mean(read),
+            variance = var(read)) %>%
+  mutate(across(where(is.numeric), round, 3)) %>%
+  apa()
+```
+
+
+```{r}
+class_four %>%
+  ggplot()+
+  geom_boxplot(aes(x=as.factor(group), y=read))
+```
+
+### Setup for RDD Regression
+
+"larger" distinguishes the group with the larger enrollment in any pair.
+
+"first" distinguishes the groups that participate in the first diff.
+
+```{r message=FALSE, warning=FALSE}
+predictors <- class_four %>%
+  mutate(larger = ifelse(group == 2 | group == 4, 1, 0),
+         first = ifelse(group == 3 | group == 4, 1, 0))
+
+rdd_model1 <- lm(read ~ first+larger+first*larger, data=predictors)
+
+apa.reg.table(rdd_model1)[[3]] %>%
+  apa()
+
+apa.aov.table(rdd_model1)[[3]] %>% 
+  apa()
+```
+```{r message=FALSE, warning=FALSE}
+fig91_data <- class_size %>%
+  mutate(group = case_when(
+    size == 36 ~ 1,
+    size == 37 ~ 2,
+    size == 38 ~ 3,
+    size == 39 ~ 4,
+    size == 40 ~ 5,
+    size == 41 ~ 6
+  )) %>%
+  drop_na(group) %>%
+  group_by(group) %>%
+  summarize(mread = mean(read))
+
+fig91_data %>%
+  filter(group != 6) %>%
+  ggplot()+
+  geom_point(aes(x=as.factor(group),
+                y=mread))+
+  geom_line(aes(x=group,
+                y=mread))+
+  geom_smooth(aes(x=group,
+                y=mread), method='lm', se=F)+
+  geom_point(data=(fig91_data %>% 
+               filter(group == 6)),
+             aes(x=as.factor(group),
+                y=mread))
+```
+
+
+### Actual RDD
+
+Table 9.3 on page 180.
+
+```{r}
+rdd_data <- class_size %>%
+  mutate(small = ifelse(size<=40, 0, 1),
+         csize = size-41)
+
+# RDD estimate for size between 36 and 46
+rdd_model2 <- lm(read ~ csize + small, data=rdd_data %>%
+                   filter(between(size, 36, 46)))
+
+apa.reg.table(rdd_model2)[[3]] %>%
+  apa("Regression-discontinuity estimate of the impact of an offer of small versus large classes on class-average reading achievement, using data from classes in the fifth-grade enrollment cohorts of size 36 through 41 in Israeli Jewish public schools")
+
+```
+
+> **Interpretation**
+>
+> * *intercept*: Reading score for schools at the 41 cutoff.
+> * *csize*: A one-unit change in class size is associated with a .17 reading score increase
+> * *small*: the causal effect of interest
+>   + Larger classes are associated with a 3.85 score increase
+
+### RDD Analytic Window Variations
+
+```{r}
+rdd_model3 <- lm(read ~ csize + small, data=rdd_data %>%
+                   filter(between(size, 36, 41)))
+
+rdd_model4 <- lm(read ~ csize + small, data=rdd_data %>%
+                   filter(between(size, 35, 47)))
+
+rdd_model5 <- lm(read ~ csize + small, data=rdd_data %>%
+                   filter(between(size, 34, 48)))
+
+rdd_model6 <- lm(read ~ csize + small, data=rdd_data %>%
+                   filter(between(size, 33, 49)))
+
+rdd_model7 <- lm(read ~ csize + small, data=rdd_data %>%
+                   filter(between(size, 32, 50)))
+
+rdd_model8 <- lm(read ~ csize + small, data=rdd_data %>%
+                   filter(between(size, 31, 51)))
+
+rdd_model9 <- lm(read ~ csize + small, data=rdd_data %>%
+                   filter(between(size, 30, 52)))
+
+rdd_model10 <- lm(read ~ csize + small, data=rdd_data %>%
+                   filter(between(size, 29, 53)))
+
+tribble(
+  ~Window, ~csize, ~csize_p, ~small, ~small_p, ~r2, ~MS,
+  "36-46",
+    rdd_model2[["coefficients"]][["csize"]],
+    summary(rdd_model2)$coefficients[2,4],
+    rdd_model2[["coefficients"]][["small"]],
+    summary(rdd_model2)$coefficients[3,4],
+    summary(rdd_model2)$r.squared,
+    apa.aov.table(rdd_model2)[["table_body"]][["MS"]][4],
+  "36-41",
+    rdd_model3[["coefficients"]][["csize"]],
+    summary(rdd_model3)$coefficients[2,4],
+    rdd_model3[["coefficients"]][["small"]],
+    summary(rdd_model3)$coefficients[3,4],
+    summary(rdd_model3)$r.squared,
+    apa.aov.table(rdd_model3)[["table_body"]][["MS"]][4],
+  "35-47",
+    rdd_model4[["coefficients"]][["csize"]],
+    summary(rdd_model4)$coefficients[2,4],
+    rdd_model4[["coefficients"]][["small"]],
+    summary(rdd_model4)$coefficients[3,4],
+    summary(rdd_model4)$r.squared,
+    apa.aov.table(rdd_model4)[["table_body"]][["MS"]][4],
+  "34-48",
+    rdd_model5[["coefficients"]][["csize"]],
+    summary(rdd_model5)$coefficients[2,4],
+    rdd_model5[["coefficients"]][["small"]],
+    summary(rdd_model5)$coefficients[3,4],
+    summary(rdd_model5)$r.squared,
+    apa.aov.table(rdd_model5)[["table_body"]][["MS"]][4],
+  "33-49",
+    rdd_model6[["coefficients"]][["csize"]],
+    summary(rdd_model6)$coefficients[2,4],
+    rdd_model6[["coefficients"]][["small"]],
+    summary(rdd_model6)$coefficients[3,4],
+    summary(rdd_model6)$r.squared,
+    apa.aov.table(rdd_model6)[["table_body"]][["MS"]][4],
+  "32-50",
+    rdd_model7[["coefficients"]][["csize"]],
+    summary(rdd_model7)$coefficients[2,4],
+    rdd_model7[["coefficients"]][["small"]],
+    summary(rdd_model7)$coefficients[3,4],
+    summary(rdd_model7)$r.squared,
+    apa.aov.table(rdd_model7)[["table_body"]][["MS"]][4],
+  "31-51",
+    rdd_model8[["coefficients"]][["csize"]],
+    summary(rdd_model8)$coefficients[2,4],
+    rdd_model8[["coefficients"]][["small"]],
+    summary(rdd_model8)$coefficients[3,4],
+    summary(rdd_model8)$r.squared,
+    apa.aov.table(rdd_model8)[["table_body"]][["MS"]][4],
+  "30-52",
+    rdd_model9[["coefficients"]][["csize"]],
+    summary(rdd_model9)$coefficients[2,4],
+    rdd_model9[["coefficients"]][["small"]],
+    summary(rdd_model9)$coefficients[3,4],
+    summary(rdd_model9)$r.squared,
+    apa.aov.table(rdd_model9)[["table_body"]][["MS"]][4],
+  "29-53",
+    rdd_model10[["coefficients"]][["csize"]],
+    summary(rdd_model10)$coefficients[2,4],
+    rdd_model10[["coefficients"]][["small"]],
+    summary(rdd_model10)$coefficients[3,4],
+    summary(rdd_model10)$r.squared,
+    apa.aov.table(rdd_model10)[["table_body"]][["MS"]][4]
+) %>%
+  mutate(across(where(is.numeric), round, 3)) %>%
+  apa("Comparison of models at different analytics windows - key statistics selected")
+```
+
+## Impact Evaluation, Chapter 6
+
+This example compares health expenditures at follow-up between households just above and just below the poverty index threshold, in the treatment localities.
+
+"We start by normalizing the poverty index threshold to 0 and create dummy variables for households with a poverty-targeting index to the left or right of the threshold. By doing so, we allow the relationship between the outcome variables and the running variable (the poverty index) to have different slopes on either side of the threshold. We then run a regression of health expenditures on a dummy variable capturing exposure to the program, as well as the two dummies for whether households have a poverty index to the left or to the right of the threshold" (p. 27)
+
+```{r}
+impact_rdd <- read_dta("data/impact_evaluation/evaluation.dta") %>%
+  # select treatment localities
+  filter(treatment_locality==1) %>% 
+  # Normalize the poverty index:
+  mutate(poverty_index_left = ifelse(  
+            poverty_index<=58, 
+            poverty_index-58,
+            0),
+         poverty_index_right = ifelse(
+           poverty_index>58,
+           poverty_index-58,
+           0
+         ))
+
+impact_rdd_model1 <- lm(health_expenditures ~ poverty_index_left+
+      poverty_index_right + eligible, data=impact_rdd %>%
+        filter(round ==1))
+
+
+apa.reg.table(impact_rdd_model1)[[3]] %>%
+  apa("RDD example from page 27")
+```
+> **Interpretations**
+>
+> * *intercept*: The mean health expenditures for those not eligible at a poverty index of 58
+> * *poverty_index_left*: An increase in status to the left of the poverty cut-off (less than 58) is associated with a .18 rise in health expenditures
+> * *poverty_index_right*: An increase in status to the right of the poverty cut-off (greater than 58) is associated with a .22 rise in health expenditures
+> * *eligible*: The causal effect of interest
+>   + Those in the *eligible* group (1), had health expenditures 11.19 less
+
+*****
+
+**Additional resource:**
+
+[https://evalf19.classes.andrewheiss.com/class/10-class/#slides](https://evalf19.classes.andrewheiss.com/class/10-class/#slides)
+
+**References**
+
+Gertler, P. J., Martinez, S., Premand, P., Rawlings, L. B., & Vermeersch, C. M. (2016). *Impact evaluation in practice*. The World Bank.
+
+Murnane, R. J., & Willett, J. B. (2010). *Methods matter: Improving causal inference in educational and social science research*. Oxford University Press.
