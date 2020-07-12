@@ -26,3 +26,7 @@ It is an R-based book of data analysis exercises related to the following three 
   * Murnane, R. J., & Willett, J. B. (2010). *Methods matter: Improving causal inference in educational and social science research*. Oxford University Press.
 * Gertler, P. J., Martinez, S., Premand, P., Rawlings, L. B., & Vermeersch, C. M. (2016). *Impact evaluation in practice*. The World Bank.
 * Angrist, J. D., & Pischke, J. S. (2008). *Mostly harmless econometrics: An empiricist's companion*. Princeton University Press.
+
+## Overview of Causal Inference Methodologies Covered
+
+<div style="width: 700px; height: 640px; margin: 10px; position: relative;"><iframe allowfullscreen frameborder="0" style="width:700px; height:640px" src="https://app.lucidchart.com/documents/embeddedchart/a0402259-26d5-495c-81a1-b82eda45f698" id="EVxcJh~tWG_C"></iframe></div>

@@ -165,7 +165,7 @@ ive_stage2 <- lm(register ~ college_predicted, data=ive_predicted)
 tidy(ive_stage2) %>%
   mutate(across(where(is.numeric), round, 3)) %>%
   apa("2nd Stage: Outcome = REGISTER")
-
+glance(ive_stage2)
 ```
 
 
@@ -185,7 +185,7 @@ tidy(ive_model1_ivreg) %>%
 
 ```
 
-### Simultaneous Equations Modeling
+### Simultaneous Equations Modeling - `systemfit`
 
 Using `systemfit`. See [https://cran.r-project.org/web/packages/systemfit/vignettes/systemfit.pdf](https://cran.r-project.org/web/packages/systemfit/vignettes/systemfit.pdf)
 
@@ -202,6 +202,23 @@ summary(ive_sem)
 ```
 
 > The book never talks about 3SLS, but the Methods Matter includes it. However, I only see two stages. In addition, changing the method to 3SLS does not change the model
+
+### Structural Equation Modeling method
+
+```{r}
+library(lavaan)
+dee_sem_model <- 'college ~ distance
+          register ~ college
+          college ~~ register'
+
+dee_sem_fit <- sem(dee_sem_model, data=dee)
+
+summary(dee_sem_fit, rsquare=T)
+
+# model implied covariance matrix
+lavInspect(dee_sem_fit, "cov.ov")
+```
+
 
 ### Side-by-Side Comparison
 
@@ -231,7 +248,7 @@ ive_diagnostic <- cbind(dee$distance, augment(ive_stage2)$.resid) %>%
 ive_diagnostic %>%
   corstars(method="pearson") %>%
   rownames_to_column("variable") %>%
-  apa("Correlation between COLLEGE (predictor), DISTANCE (IV), and REGISTER (outcome)")
+  apa("Correlation between DISTANCE (IV) and REGISTER residuals (outcome)")
 
 ```
 
@@ -354,6 +371,7 @@ tribble(
   mutate(across(where(is.numeric), round, 3)) %>%
   apa("Sample means on the outcome variable, question predictor, instrument, and covariates, for a sample of students from Bogota, Colombia, who participated in the 1995 lottery to obtain a government-funded private-school tuition scholarship, overall and by whether the child was offered financial aid")
 ```
+
 > What kind of T-test was done here?
 
 ### Assumption Checks
@@ -394,6 +412,23 @@ msummary(list(
   gof_map = gm) %>%
   apa_msummary()
 ```
+
+### Diagnostics
+
+```{r}
+paces_diagnostic <- cbind(paces$won_lottery, augment(paces_second)$.resid) %>%
+  as.data.frame() %>%
+  rename("won_lottery" = V1,
+         "finish8th_residuals" = V2)
+
+paces_diagnostic %>%
+  corstars(method="pearson") %>%
+  rownames_to_column("variable") %>%
+  apa("Correlation between WON_LOTTERY (instrument) and FINISH8th residuals (outcome)")
+
+```
+
+
 
 ## Impact Evaluation, Chapter 5: Estimation of Intent-to-Treat and Local Average Treatment Effect in the Presence of Noncompliance
 
@@ -497,6 +532,25 @@ msummary(list(
 > **Interpretation**
 >
 > From *Impact Evaluation*: "The first stage identifies the effects of the promotion activities on program take-up. In this case, promotion activities increase program take-up by 40.8 percent. In the second stage, we regress the outcome variable on the predicted program participation from the first stage to obtain the LATE estimates. In this case, the results suggest that participation in the HISP program lowers health expenditures by $9.5."
+
+
+### Diagnostics
+
+```{r}
+impact_ive_residuals <- model.frame(impact_promo_robust)[[impact_promo_robust$outcome]] - impact_promo_robust$fitted.value
+
+
+impact_ive_diagnostic <- cbind(impact_ive %>%
+                                 filter(round==1) %>%
+                                 select(treatment_locality), impact_ive_residuals)
+
+impact_ive_diagnostic %>%
+  corstars(method="pearson") %>%
+  rownames_to_column("variable") %>%
+  apa("Correlation between instrument) and residuals")
+
+```
+
 
 *****
 

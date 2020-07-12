@@ -346,6 +346,12 @@ apa.reg.table(impact_rdd_model1)[[3]] %>%
 
 [https://evalf19.classes.andrewheiss.com/class/10-class/#slides](https://evalf19.classes.andrewheiss.com/class/10-class/#slides)
 
+**Related Journal Articles**
+
+Bleemer, Z., & Mehta, A. (2020). [Will studying economics make you rich? A regression discontinuity analysis of the returns to college major](https://dx.doi.org/10.2139/ssrn.3583165).
+
+Zhang, L., Hu, S., Sun, L., & Pu, S. (2016). [The effect of Florida's Bright Futures Program on college choice: A regression discontinuity approach](https://doi.org/10.1080/00221546.2016.11777396). *The Journal of Higher Education, 87*(1), 115-146.
+
 **References**
 
 Gertler, P. J., Martinez, S., Premand, P., Rawlings, L. B., & Vermeersch, C. M. (2016). *Impact evaluation in practice*. The World Bank.

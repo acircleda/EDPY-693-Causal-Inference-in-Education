@@ -307,6 +307,12 @@ apa(impact_did2$table_body, impact_did2$table_title)
 
 *****
 
+**Related Journal Articles**
+
+Cornwell, C., & Mustard, D. B. (2006). [Merit aid and sorting: The effects of HOPE-style scholarships on college ability stratification](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=881564). *IZA Discussion Paper No. 1956*.
+
+Furquim, F., Corral, D., & Hillman, N. (2020). [A Primer for Interpreting and Designing Difference-in-Differences Studies in Higher Education Research](https://link.springer.com/referenceworkentry/10.1007%2F978-3-030-31365-4_5). *Higher Education: Handbook of Theory and Research: Volume 35*, 667-723.
+
 **References**
 
 Gertler, P. J., Martinez, S., Premand, P., Rawlings, L. B., & Vermeersch, C. M. (2016). *Impact evaluation in practice*. The World Bank.

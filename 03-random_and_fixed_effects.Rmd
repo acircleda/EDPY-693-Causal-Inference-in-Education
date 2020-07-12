@@ -626,6 +626,13 @@ tribble(
 
 *****
 
+**Related Journal Articles**
+
+Brand, J. E., & Xie, Y. (2010). [Who benefits most from college? Evidence for negative selection in heterogeneous economic returns to higher education](https://doi.org/10.1177%2F0003122410363567). *American Sociological Review, 75*(2), 273-302.
+
+Titus, M. A. (2004). [An examination of the influence of institutional context on student persistence at 4-year colleges and universities: A multilevel approach](https://link.springer.com/content/pdf/10.1023/B:RIHE.0000044227.17161.fa.pdf). *Research in higher education, 45*(7), 673-699.
+
+
 **References**
 
 Murnane, R. J., & Willett, J. B. (2010). *Methods matter: Improving causal inference in educational and social science research*. Oxford University Press.
