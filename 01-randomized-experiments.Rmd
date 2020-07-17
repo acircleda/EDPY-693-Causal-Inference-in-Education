@@ -2,7 +2,7 @@
 
 **New York Scholarship Program**
 
-The following example comes from  Murnane and Willett (2010), chapter 4. The data was originally downloaded from the [UCLA Institute for Digital Research and Education](https://stats.idre.ucla.edu/stata/examples/methods-matter/chapter4/).
+The following example comes from  Murnane and Willett (2010), chapter 4. The data were originally downloaded from the [UCLA Institute for Digital Research and Education](https://stats.idre.ucla.edu/stata/examples/methods-matter/chapter4/).
 
 The data examines a subset of African-American students from the 1997 New York Scholarship Program, a lottery for school vouchers. 
 
@@ -65,9 +65,10 @@ apa <- function(x) {
 
 ## Descriptive Statistics
 
-```{r, descriptives}
+```{r message=FALSE, warning=FALSE}
 describe(nysp_vouchers) %>%
   as.data.frame() %>%
+    rownames_to_column() %>%
   mutate(across(is.numeric, round, 3)) %>%
   select(-mad, -min, -max, -range, -trimmed) %>%
   apa()
@@ -172,7 +173,7 @@ apa.aov.table(mm4_model2)[[3]] %>% apa()
 
 > **Interpretation**
 > 
-> Students who recieved an offer of a voucher had significantly higher achivement scores (4.1 points higher) controlling for pre-test scores. The model with the pre_ach covariate is accounts for more variability (is less biased) as indicated by the smaller Mean Square term of 206.58.
+> Students who recieved an offer of a voucher had significantly higher achivement scores (4.1 points higher) controlling for pre-test scores. The model with the pre_ach covariate accounts for more variability as indicated by the smaller mean square error term of 206.58.
 
 *****
 
