@@ -51,7 +51,7 @@ cohens_d(nysp_vouchers$post_ach, as.factor(nysp_vouchers$voucher)) %>%
 
 > **Interpretation**
 > 
-> Students with an opportunity to recieve a voicher were **.25 standard deviations** higher than students who did not recieve an opportunity to get a voucher.
+> Students with an opportunity to recieve a voicher scored **.25 standard deviations** higher than students who did not recieve an opportunity to get a voucher.
 
 ## Calculating Power
 
@@ -103,7 +103,7 @@ apa.aov.table(mm4_model1)[[3]] %>%
 
 Use `pwr.f2.test(u =, v = , f2 = , sig.level = , power = )` where,
 
-  * u = numerator or *df* of predictors (e.g. number of predictors)
+  * u = numerator or *df* of predictors (e.g. number of predictors including each dummy variable)
   * v = denominator or *df* for the residual
   * f2 = Cohen's $f^2$, which is equal to $\frac{R^2}{1-R^2}$
 
@@ -150,7 +150,7 @@ tribble(
 
 > **Interpretation**
 > 
-> The post-hoc test of power indicated that the large sample size and large $R^2$ had a power of 1, or a 100% chance to detect an effect if there was one.  
+> The post-hoc test of power indicated that the large sample size and large $R^2$ had a power of 1, or approximately a 100% chance to detect an effect if there was one.  
 
 
 ## Effect Size Calculator
