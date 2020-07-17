@@ -222,7 +222,7 @@ The function and argument is as follows:
 Note: you would use `(0 | grouping variable)` for fixed effects.
 
 ```{r message=FALSE, warning=FALSE}
-library(lme4) # for multilevel modelling
+library(lme4) # for multilevel modeling
 library(performance)
 library(broom) # making a table from model
 
@@ -287,9 +287,11 @@ $WATTACK_{ji} = (\gamma_0 + u_j) + \gamma_1SFA_j + \epsilon_{ij}$
 
 > **Interpretations**
 >
->  * *intercept* - The mean of schools in the control group
+>  * *intercept* - The mean word attack score across schools in the control group
 >  * *sfa* - The impact of being in the SFA program on school Word Attacks scores (these schools had scores 4.366 points higher)
 >  * *sd_(Intercept).schid* - The residual for schools - This has decreased to some extent as *sfa* accounts for some of the variation
+>   + The treatment effect explained 6.3%, a reduction in variance.SFA accounts for 6.3% of the 20% (ICC) between schools.
+    + > ((8.896^2)-(8.7^2))/(8.8986^2)
 >  * *sd_observation.Residual* - Residual variation for children remains the same, as SFA is a school-level variable
 >  * *ICC* has decreased somewhat and indicates the variation between schools is less when *sfa* is taken into account.
 >    + *sfa* accounts for 3.5% of the variance between schools
@@ -319,10 +321,11 @@ $WATTACK_{ji} = (\gamma_0 + u_j) + \gamma_1SFA_j + \gamma_2SCH_PPVT_j + \epsilon
 
 > **Interpretations**
 >
->  * *intercept* - The mean of schools in the control group, controlling for pretest scores
+>  * *intercept* - The mean of word attack scores across schools in the control group, controlling for school average pretest scores
 >  * *sfa* - The impact of being in the SFA program on school Word Attacks scores, controlling for pretest scores (these schools had scores 3.569 points higher)
 >  * *sch_ppvt* - school pre-test scores - these are included for statistical control and not generally needed for interpretation
 >  * *sd_(Intercept).schid* - The residual for schools - This has decreased to some extent as *sfa* and *sch_ppvt* accounts for some of the variation
+>   + The percent difference between Model 2 and Model 3 is 35%, which means school pre-test scores explains 35% of variation across word attack scores above and beyond what the treatment explains. This creates a more precise estimate in the treatment variable.
 >  * *sd_observation.Residual* - Residual variation for children remains the same, as SFA is a school-level variable
   * *ICC* has decreased somewhat and indicates the variation between schools is less when *sfa* and *sch_ppvt* are taken into account.
 

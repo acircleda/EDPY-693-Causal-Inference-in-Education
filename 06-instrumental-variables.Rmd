@@ -205,7 +205,7 @@ summary(ive_sem)
 
 ### Structural Equation Modeling method
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 library(lavaan)
 dee_sem_model <- 'college ~ distance
           register ~ college
@@ -222,7 +222,7 @@ lavInspect(dee_sem_fit, "cov.ov")
 
 ### Side-by-Side Comparison
 
-Note: SEM model *not* added to the following table.
+Note: SEM models *not* added to the following table.
 
 ```{r}
 msummary(list(
@@ -234,6 +234,7 @@ msummary(list(
   apa_msummary("Side-by-Side Comparison of IVE Methods")
   
 ```
+> **Note** While coefficients generally math between second stage regression and ivreg, `ivreg` $R^2$ is larger and matches SEM methods.
 
 ### Diagnostics
 
