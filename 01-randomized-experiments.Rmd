@@ -2,17 +2,17 @@
 
 **New York Scholarship Program**
 
-The following example comes from  Murnane and Willett (2010), chapter 4. The data was originally downloaded from the [UCLA Institute for Digital Research and Education](https://stats.idre.ucla.edu/stata/examples/methods-matter/chapter4/).
+The following example comes from  Murnane and Willett (2010), chapter 4. The data were originally downloaded from the [UCLA Institute for Digital Research and Education](https://stats.idre.ucla.edu/stata/examples/methods-matter/chapter4/).
 
-The data examines a subset of African-American students from the 1997 New York Scholarship Program, a lottery for school vouchers. 
+The data examine a subset of African-American students from the 1997 New York Scholarship Program, a lottery for school vouchers. 
 
 
 **Variables**:
 
   * s_id: id number
-  * voucher: recieved a voucher (1=yes, 0=no)
+  * voucher: received a voucher (1=yes, 0=no)
   * pre_ach: reading achievement score before getting a voucher
-  * post_ach: reading achivemenet score at year 3
+  * post_ach: reading achievement score at year 3
   
 
 ```{r message=FALSE, warning=FALSE}
@@ -30,7 +30,7 @@ nysp_vouchers <- read_dta("data/methods_matter/ch4_nyvoucher.dta")
 ```
 
 ```{r message=FALSE, warning=FALSE}
-# function to make apa tables
+# function to make APA tables
 apa <- function(x) {
   gt(x) %>%
   tab_options(
@@ -65,7 +65,8 @@ apa <- function(x) {
 
 ## Descriptive Statistics
 
-```{r, descriptives}
+```{r descriptives, warning=FALSE}
+#ADD VARIABLE NAMES TO TABLE
 describe(nysp_vouchers) %>%
   as.data.frame() %>%
   mutate(across(is.numeric, round, 3)) %>%
@@ -130,7 +131,7 @@ broom::tidy(mm4_t) %>%
 
 > **Interpretation**
 > 
-> Students who recieved an offer of a voucher had significantly higher achivement scores.
+> Students who received an offer of a voucher had significantly higher achievement scores.
 
 ## Simple Linear Regression 
 
@@ -153,7 +154,7 @@ apa.aov.table(mm4_model1)[[3]] %>%
 
 > **Interpretation**
 > 
-> Students who recieved an offer of a voucher had significantly higher achivement scores (4.9 points higher).
+> Students who received an offer of a voucher had significantly higher achievement scores (4.9 points higher).
 
 ## Multiple Linear Regression 
 
@@ -172,7 +173,7 @@ apa.aov.table(mm4_model2)[[3]] %>% apa()
 
 > **Interpretation**
 > 
-> Students who recieved an offer of a voucher had significantly higher achivement scores (4.1 points higher) controlling for pre-test scores. The model with the pre_ach covariate is accounts for more variability (is less biased) as indicated by the smaller Mean Square term of 206.58.
+> Students who received an offer of a voucher had significantly higher achievement scores (4.1 points higher) controlling for pre-test scores. The model with the pre_ach covariate is accounts for more variability (is less biased) as indicated by the smaller Mean Square term of 206.58.
 
 *****
 
