@@ -1,14 +1,12 @@
 # 2. Statistical Power and Sample Size (Week 3)
 
-This is an edit!
-
 
 ```{r, message=FALSE, warning=FALSE}
 # load packages
 library(tidyverse)
 library(haven)
 library(apaTables)
-source("data/apafunction.R") #for cool APA-style tables
+source("data/apafunction.R") #for APA-style tables
 
 #load data
 nysp_vouchers <- read_dta("data/methods_matter/ch4_nyvoucher.dta")

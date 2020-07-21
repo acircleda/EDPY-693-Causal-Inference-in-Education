@@ -1,0 +1,404 @@
+# 7. Propensity Score Matching
+
+## Key Concepts
+
+  * Propensity scores can be used as an attempt to deal with treatment bias in non-experimental data.
+  * It is more powerful than simply including many covariates because it attempts to minimize unobserved differences through predictions from logistic regression.
+
+## Methods Matter, Chapter 12
+
+The following example comes from Murnane and Willett (2010), chapter 12.
+
+**NELS-88 Public vs. Catholic School Math Achievement**
+
+"We investigate the impact on a student’s twelfth-grade mathematics achievement of attending a Catholic (versus a public) high school while attempting to remove bias due to observed differences in base-year family income, parental educational attainment and expectations, and base-year student academic achievement and behavior." This is based on research by Altonji, Elder, and Taber (2005).
+
+The sample contains the 5,671 students from the NELS-88 dataset who were living in families with annual income of less than $75,000 (in 1988 dollars) in the base year of the survey.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# load packages
+library(tidyverse)
+library(haven)
+library(gt)
+library(janitor)
+library(psych)
+library(apaTables)
+library(broom)
+library(modelsummary)
+source("data/apafunction.R")
+source("data/apa_msummary.R")
+source("data/corstars.R")
+```
+
+```{r, message=FALSE, warning=FALSE}
+#load and prep data
+nels88 <- read_dta("data/methods_matter/ch12_catholic.dta")
+```
+
+```{r}
+labelled::var_label(nels88) %>%
+  unlist() %>%
+  matrix(nrow=25, byrow=T) %>% 
+  as.data.frame() %>%
+  rename("description" = V1) %>%
+  add_column(variable = names(nels88), .before=1) %>%
+  apa("Key Variables")
+  
+```
+
+### Descriptive Statistics
+
+```{r message=FALSE, warning=FALSE}
+describe(nels88) %>%
+  as.data.frame() %>%
+  select(n, mean, sd, min, max, skew, kurtosis) %>%
+  rownames_to_column("variables") %>%
+  slice(3, 6, 17) %>%
+  mutate(across(where(is.numeric), round, 3)) %>%
+  apa("Descriptive statistics for mathematics score (math12), type of high school (catholic), and family income (faminc8")
+
+nels88 %>%
+  mutate(catholic = as_factor(catholic),
+         faminc8 = as_factor(faminc8)) %>%
+  tabyl(faminc8, catholic) %>%
+    adorn_totals(c("row", "col")) %>%
+  apa("Catholic school attendance by family income") %>%
+  tab_spanner("Attended Catholic school?", vars(no, yes))
+
+nels88 %>%
+  tabyl(faminc8, catholic) %>%
+  chisq.test()
+
+nels88 %>%
+  mutate(faminc8 = as_factor(faminc8),
+         catholic = as_factor(catholic)) %>%
+  ggplot()+
+  coord_flip()+
+  geom_point(aes(x=faminc8, y=catholic, color=catholic),
+             position = position_jitter())+
+  guides(color = guide_legend(reverse=T))+
+  labs(title="Distribution of individuals by school type and income")
+```
+
+#### Generating Variable Categories
+
+The book examples uses generated variables *faminc8*, which uses the actual mid-values of each income range, scaled.
+
+```{r}
+nels88 <- nels88 %>%
+  mutate(inc8 = dplyr::recode(faminc8,
+    "1" = 0,
+    "2"=.5,
+    "3"=2,
+    "4"=4,
+    "5"=6.25,
+    "6"=8.75,
+    "7"=12.5,
+    "8"=17.5,
+    "9"=22.5,
+    "10"=30,
+    "11"=42.5,
+    "12"=62.5
+  ))
+```
+
+
+### Determining the Best Model
+
+Before generating propensity scores, it is important to determine the best model through an iterative process.
+
+```{r}
+
+# this functions adds chi-square to model summary outputs
+glance_custom.glm <- function(x) {
+    lrchi2 <- lmtest::lrtest(x)[2,4]
+    lrchi2out <- tibble::tibble(`LR Chi-Square:` = lrchi2)
+    return(lrchi2out)
+}
+
+nels88_modela <- glm(catholic ~ (inc8*math8),
+                     data=nels88, family="binomial")
+
+nels88_modelb <- glm(catholic ~ I(inc8^2) + (inc8*math8),
+                     data=nels88, family="binomial")
+
+nels88_modelc <- glm(catholic ~ I(inc8^2) + (inc8*math8) + fhowfar + mhowfar + fight8 + nohw8 + disrupt8 + riskdrop8,
+                     data=nels88, family="binomial")
+
+msummary(list(
+  "Model A" = nels88_modela, 
+  "Model B" = nels88_modelb,
+  "Model c" = nels88_modelc)) %>%
+  apa_msummary("Parameter estimates and approximate p-values for a set of fitted logistic regression models in which attendance at a public or a Catholic high school (CATHOLIC) has been regressed on hypothesized selection predictors (INC8 and MATH8) that describe the base-year annual family income and student mathematics achievement (n = 5,671)")
+
+
+```
+> **Interpretations**
+> 
+> Model C was determined to be the best based on the smaller chi-square ?
+
+> Why did they include a polynomial? ??
+
+### Examining the Region of Common Support
+
+These graphics show the overlap of the propensity scores of the two groups, suggesting they share a lot of common support on the covariates in the model. Common support indicates the regions of stratification share enough members of the treatment and control groups.
+
+
+```{r}
+
+# Create Propensity Scores
+nels88_propscore <- data.frame(pr_score = predict(nels88_modelc,
+                                  type="response")) %>%
+  add_column(nels88_modelc$data)
+
+nels88_propscore %>%
+  mutate(catholic = ifelse(catholic == 1, "Catholic", "Public")) %>%
+  ggplot()+
+  geom_histogram(aes(x=pr_score, y=..density..,), color="white", bins=30)+
+  geom_density(aes(x=pr_score))+
+  facet_wrap(~catholic, ncol=1)
+
+nels88_propscore %>%
+  mutate(catholic = ifelse(catholic == 1, "Catholic", "Public")) %>%
+  ggplot()+
+  geom_histogram(aes(x=pr_score, y=..density.., fill=catholic), color="white", bins=30, position="identity", alpha=.3)+
+  geom_density(aes(x=pr_score, color=catholic))#+
+  facet_wrap(~catholic, ncol=1)
+```
+
+### Stratifying on the Propensities
+
+#### Stratification into 5 blocks based on quintiles
+
+```{r}
+# making quintiles
+nels88_5blocks <- nels88_propscore %>%
+  mutate(blocks = ntile(pr_score, 5),
+         catholic = factor(catholic, labels = c(
+           "Catholic", "Public"
+         ))) %>%
+  group_by(blocks)
+```
+
+#### Checking balance on the propensities
+```{r}
+do(nels88_5blocks, tidy(t.test(.$pr_score ~ .$catholic,
+                 alternative = "greater",
+                 paired = FALSE,
+                 var.equal = TRUE,
+                 conf.level = 0.95
+                 ))) %>%
+  select(blocks, p.value) %>%
+  ungroup() %>%
+  apa("Testing balance of blocks based on quntiles")
+```
+
+> **Interpretation**
+>
+> The table above shows t-tests per block between propensity scores and treatment groups. Using a one-sided test where the expectation is a greater score, none of the differences are significant. This suggests balance.
+>
+> Note: if I choose "less", I get different results. ??
+
+#### Stratification into 5 blocks based on cut scores
+
+The following stratification comes from p. 320
+```{r warning=FALSE}
+
+nels88_5blocks_2 <- nels88_propscore %>%
+  mutate(blocks = case_when(
+    pr_score < .05 ~ 1,
+    pr_score = .05 & pr_score <.1 ~2,
+    pr_score =.1 & pr_score <.15 ~ 3,
+    pr_score = .15 & pr_score < .2 ~ 4,
+    pr_score = .2 & pr_score < .3 ~ 5
+  ),
+  catholic = factor(catholic, labels = c(
+           "Public", "Catholic"
+         ))) %>%
+  group_by(blocks)
+
+do(nels88_5blocks_2, tidy(t.test(.$pr_score ~ .$catholic,
+                 alternative = "greater",
+                 paired = FALSE,
+                 var.equal = TRUE,
+                 conf.level = 0.95
+                 ))) %>%
+  select(blocks, p.value) %>%
+  ungroup() %>%
+  apa("Testing balance of blocks based on the book's example")
+
+```
+
+#### Estimate the ATE and ATT of Stratified Propensity Scores
+
+```{r}
+
+# Summarize Block
+nels88_5blocks_sum <- nels88_5blocks_2 %>%
+  group_by(blocks, catholic) %>%
+  summarize(n = n(),
+    pr_score = mean(pr_score),
+            income_mean=mean(inc8),
+            mathmean = mean(math8),
+            math_achievment = mean(math12)) %>%
+  pivot_wider(names_from=catholic, values_from = c(n, pr_score, income_mean, mathmean, math_achievment)) %>%
+  mutate(diff = math_achievment_Catholic - math_achievment_Public,
+         n = n_Catholic + n_Public,
+         mutate(across(where(is.numeric), round, 3))) %>%
+  ungroup()
+
+apa(nels88_5blocks_sum, "Five propensity-score blocks, based on predicted values from final Model C (which contains selected covariates in addition to those included in Model B). Within-block sample statistics include: (a) frequencies, (b) average propensity scores, and (c) average twelfth grade mathematics achievement by type of high school, and their difference (n = 5,671)")
+
+#Weighted Average Treatment Effect
+nels88_5blocks_sum %>%
+  mutate(weighted = diff * n) %>%
+  pull(weighted) %>%
+  sum()/sum(nels88_5blocks_sum$n)
+
+#Weighted Average Treatment on the Treated Effect
+nels88_5blocks_sum %>%
+  mutate(weighted = diff * n_Catholic) %>%
+  pull(weighted) %>%
+  sum()/sum(nels88_5blocks_sum$n_Catholic)
+
+```
+
+
+
+### Using MatchIt
+
+Method from [http://www.practicalpropensityscore.com/matching.html](http://www.practicalpropensityscore.com/matching.html)
+
+```{r message=FALSE, warning=FALSE}
+library(MatchIt)
+
+set.seed(2020)
+
+#generate propensity scores using Model C
+nels88_ps <- matchit(catholic ~ I(inc8^2) + (inc8*math8) + fhowfar + mhowfar + fight8 + nohw8 + disrupt8 + riskdrop8,
+                         data=nels88,
+                         method="nearest", #nearest neighbors
+                         replace=T, #with replacement
+                        ratio=1) #one to one matching
+```
+
+
+#### Diagnose Covariate Balance
+
+```{r}
+nels88_ps_sum <- summary(nels88_ps)
+
+#raw
+summary(abs(nels88_ps_sum$sum.matched$`Mean Diff`))
+
+#standardized
+summary(abs(summary(nels88_ps, standardize = T)$sum.matched$`Std. Mean Diff`))
+
+table(abs(summary(nels88_ps, standardize = T)$sum.matched$"Std. Mean Diff.") > 0.1)
+
+```
+> What are we looking for here?
+
+#### Estimate Treatment Effects
+
+```{r}
+#obtain matched data
+matched_data <- match.data(nels88_ps)
+
+# use weights to estimate ATT
+library(survey)
+design.nels88 <- svydesign(ids=~1, weights=~weights,
+                                   data=matched_data)
+#estimate the ATT 
+model.nels88 <- svyglm(math12~catholic + I(inc8^2) + (inc8*math8) + fhowfar + mhowfar + fight8 + nohw8 + disrupt8 + riskdrop8, design.nels88, family=gaussian())
+
+summary(model.nels88)
+```
+
+> The ATT is 1.22 ?
+
+
+### Another MatchIt Method 
+
+From [Propensity Scores:	A Practical Introduction Using R](https://journals.sfu.ca/jmde/index.php/jmde_1/article/view/431)
+
+#### Visualize Propensity Scores
+
+```{r message=FALSE, warning=FALSE}
+plot(nels88_ps, type ="jitter")
+```
+
+#### Prepare Matched Data
+```{r}
+# save matched data
+matches <- data.frame(nels88_ps$match.matrix)
+
+# find the  matches
+group1 <- match(row.names(matches), row.names(matched_data))
+group2 <- match(matches$X1, row.names(matched_data))
+
+# extract outcome values for matches
+treatment <- matched_data$math12[group1]
+control <- matched_data$math12[group2]
+
+# create matched data set
+outcomes <- cbind(matches, treatment, control)
+
+# t-test
+t.test(outcomes$treatment, outcomes$control, paired = T) %>% 
+  tidy() %>%
+  select(estimate:p.value, method, alternative) %>%
+  apa("Outcome Analysis")
+
+```
+> Is .93 the correct estimate? ATE? ATT? It is very low compared to book
+
+nels88_matched_data <- match.data(nels88_ps)
+
+### Using PS Match
+
+https://rstudio-pubs-static.s3.amazonaws.com/3473_aec63a6fb6f7437faf2f583233716b92.html
+
+```{r}
+# `nonrandom` is not available for R 4.0. You must install like this:
+#install.packages(https://cran.r-project.org/src/contrib/Archive/nonrandom/nonrandom_1.42.tar.gz, repos=NULL, type="source")
+
+library(nonrandom)
+
+## Propensity score estimation (pscore object returned)
+nels88_psmatch <- pscore(formula  = catholic ~ I(inc8^2) + (inc8*math8) + fhowfar + mhowfar + fight8 + nohw8 + disrupt8 + riskdrop8,
+                        data        = nels88,
+                        family      = "binomial",
+                        name.pscore = "ps")
+
+
+```
+
+#### Actual Propensity score matching
+
+> Note following code gives error: 
+
+```
+Error in ps.match.pscore(object = nels88_psmatch, control.matched.by = matched.by,  : 
+  Who was treated? Define argument 'who.treated'.
+```
+  
+```{r eval=FALSE, include=FALSE}
+nels88_psmatch_results <- ps.match(object = nels88_psmatch,
+                 control.matched.by = matched.by,
+                 who.treated = 1, # value 1 is treated
+                 name.match.index   = "match.index",
+                 ratio              = 1, # default 1:1 match
+                 caliper            = "logit",
+                 x                  = 0.2,
+                 givenTmatchingC    = TRUE,
+                 bestmatch.first    = TRUE,
+                 setseed            = FALSE,
+                 combine.output     = TRUE)
+```
+
+
+## Impact Evaluation, Chapter 8
+
+
+
