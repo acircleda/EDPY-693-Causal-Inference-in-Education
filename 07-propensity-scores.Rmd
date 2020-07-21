@@ -3,7 +3,7 @@
 ## Key Concepts
 
   * Propensity scores can be used as an attempt to deal with treatment bias in non-experimental data.
-  * It is more powerful than simply including many covariates because it attempts to minimize unobserved differences through predictions from logistic regression.
+  * It is more powerful than simply including many covariates because it attempts to minimize observed differences through predictions from logistic regression.
 
 ## Methods Matter, Chapter 12
 
@@ -55,7 +55,7 @@ describe(nels88) %>%
   rownames_to_column("variables") %>%
   slice(3, 6, 17) %>%
   mutate(across(where(is.numeric), round, 3)) %>%
-  apa("Descriptive statistics for mathematics score (math12), type of high school (catholic), and family income (faminc8")
+  apa("Descriptive statistics for mathematics score (math12), type of high school (catholic), and family income (faminc8)")
 
 nels88 %>%
   mutate(catholic = as_factor(catholic),
@@ -77,7 +77,7 @@ nels88 %>%
   geom_point(aes(x=faminc8, y=catholic, color=catholic),
              position = position_jitter())+
   guides(color = guide_legend(reverse=T))+
-  labs(title="Distribution of individuals by school type and income")
+  labs(title="Distribution of individuals by school type and income") #This is a cool graph and a great visual comparison of the # of individuals in each income bracket
 ```
 
 #### Generating Variable Categories
@@ -105,7 +105,7 @@ nels88 <- nels88 %>%
 
 ### Determining the Best Model
 
-Before generating propensity scores, it is important to determine the best model through an iterative process.
+Before generating propensity scores, it is important to determine the best model that predicts group membership through an iterative process.
 
 ```{r}
 
@@ -135,9 +135,9 @@ msummary(list(
 ```
 > **Interpretations**
 > 
-> Model C was determined to be the best based on the smaller chi-square ?
+> Model C was determined to be the best based on having smaller model fit statistics AIC/BIC. Also, since Model B is nested within Model C, we can perform a Likelihood-Ratio Chi-squared test between the model deviances (i.e., -2*LL): -2*-1833.541 - -2*-1804.125 = 58.8 which is distibuted as a Chi-squared with degrees of freedom equal the difference in the number of paramters between models (10-4 = 6): $\chi^2$(6)=58.8, p < .001. 
 
-> Why did they include a polynomial? ??
+> Why did they include a polynomial? to account for a non-linear relationship between catholic and inc8. See Box-Tidwell (i.e., adding interactions between the continuous variables and its natural log, if it's significant it suggest a non-linearity) and link tests (i.e., this uses the predicted values and square of predicted values to test whether the model is properly specified, the squared term should not be statistically significant) for logistic regression. 
 
 ### Examining the Region of Common Support
 
@@ -163,7 +163,7 @@ nels88_propscore %>%
   ggplot()+
   geom_histogram(aes(x=pr_score, y=..density.., fill=catholic), color="white", bins=30, position="identity", alpha=.3)+
   geom_density(aes(x=pr_score, color=catholic))#+
-  facet_wrap(~catholic, ncol=1)
+  facet_wrap(~catholic, ncol=1) #love this graphic to compare region of common support!
 ```
 
 ### Stratifying on the Propensities
@@ -195,9 +195,10 @@ do(nels88_5blocks, tidy(t.test(.$pr_score ~ .$catholic,
 
 > **Interpretation**
 >
-> The table above shows t-tests per block between propensity scores and treatment groups. Using a one-sided test where the expectation is a greater score, none of the differences are significant. This suggests balance.
+> The table above shows t-tests per block between propensity scores and treatment groups. Using a one-sided test where the expectation is a greater score, none of the differences are significant. This suggests balance. 
 >
-> Note: if I choose "less", I get different results. ??
+> Note: if I choose "less", I get different results. ?? Yes becuase it is the lower side of the one-sided t-test. You'd be testing whether the expectation is a lower score. 
+You may also want to check individual covariate balance, like you do below. 
 
 #### Stratification into 5 blocks based on cut scores
 
@@ -280,6 +281,9 @@ nels88_ps <- matchit(catholic ~ I(inc8^2) + (inc8*math8) + fhowfar + mhowfar + f
                          method="nearest", #nearest neighbors
                          replace=T, #with replacement
                         ratio=1) #one to one matching
+                    
+                    #A user may want to consider adding a caliper option to only select cases within a certain range, caliper = .2
+       
 ```
 
 
@@ -294,10 +298,10 @@ summary(abs(nels88_ps_sum$sum.matched$`Mean Diff`))
 #standardized
 summary(abs(summary(nels88_ps, standardize = T)$sum.matched$`Std. Mean Diff`))
 
-table(abs(summary(nels88_ps, standardize = T)$sum.matched$"Std. Mean Diff.") > 0.1)
+table(abs(summary(nels88_ps, standardize = T)$sum.matched$"Std. Mean Diff.") > 0.1) #Table says Max = .05, but this function says there are 11 cases with Std.Mean.Diff > .1
 
 ```
-> What are we looking for here?
+> What are we looking for here? Small differences between groups on the covariates. I prefer the standardized differences. These are all farily small (Max = .05). 
 
 #### Estimate Treatment Effects
 
@@ -315,7 +319,7 @@ model.nels88 <- svyglm(math12~catholic + I(inc8^2) + (inc8*math8) + fhowfar + mh
 summary(model.nels88)
 ```
 
-> The ATT is 1.22 ?
+> The ATT is 1.22 ? Yes, with propensity score matching we can typically only estimate the ATT since we don't typically include the entire sample (see all the unmatched control group cases in the figure below). Weighting by the inverse of the propensity score then running the analysis is one way to get the ATE. You can also get ATE from statification. 
 
 
 ### Another MatchIt Method 
@@ -351,7 +355,7 @@ t.test(outcomes$treatment, outcomes$control, paired = T) %>%
   apa("Outcome Analysis")
 
 ```
-> Is .93 the correct estimate? ATE? ATT? It is very low compared to book
+> Is .93 the correct estimate? ATE? ATT? It is very low compared to book. I believe it would be the ATT. While it is lower than what's found in the book, check out the UCLA site, they get estimates this low. One thing we'd want to do is assess the robustness of these results by altering parameters of the matching algorithm (e.g., adding a caliper, altering the values of the caliper .2 to .15, matching with and without replacement, ratio matching 1:5) or by choosing a different matching algorithm (e.g., optimal matching, full matching). These type of tests help demonstrate that results do not depend on the particular matching method chosen.
 
 nels88_matched_data <- match.data(nels88_ps)
 
