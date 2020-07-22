@@ -77,7 +77,7 @@ nels88 %>%
   geom_point(aes(x=faminc8, y=catholic, color=catholic),
              position = position_jitter())+
   guides(color = guide_legend(reverse=T))+
-  labs(title="Distribution of individuals by school type and income") #This is a cool graph and a great visual comparison of the # of individuals in each income bracket
+  labs(title="Distribution of individuals by school type and income")
 ```
 
 #### Generating Variable Categories
@@ -135,9 +135,9 @@ msummary(list(
 ```
 > **Interpretations**
 > 
-> Model C was determined to be the best based on having smaller model fit statistics AIC/BIC. Also, since Model B is nested within Model C, we can perform a Likelihood-Ratio Chi-squared test between the model deviances (i.e., -2*LL): -2*-1833.541 - -2*-1804.125 = 58.8 which is distibuted as a Chi-squared with degrees of freedom equal the difference in the number of paramters between models (10-4 = 6): $\chi^2$(6)=58.8, p < .001. 
-
-> Why did they include a polynomial? to account for a non-linear relationship between catholic and inc8. See Box-Tidwell (i.e., adding interactions between the continuous variables and its natural log, if it's significant it suggest a non-linearity) and link tests (i.e., this uses the predicted values and square of predicted values to test whether the model is properly specified, the squared term should not be statistically significant) for logistic regression. 
+> Model C was determined to be the best based on having smaller model fit statistics AIC/BIC. Also, since Model B is nested within Model C, we can perform a Likelihood-Ratio Chi-squared test between the model deviances (i.e., $-2\times LL$): $(-2 \times -1833.541) - (-2\times -1804.125) = 58.8$, which is distibuted as a Chi-squared with degrees of freedom equal the difference in the number of paramters between models (10-4 = 6): $\chi^2$(6)=58.8, p < .001. 
+>
+> Note: a polynomial term ($inc8^2$) to account for a non-linear relationship between catholic and inc8. See Box-Tidwell (i.e., adding interactions between the continuous variables and its natural log, if it's significant, it suggest non-linearity) and link tests (i.e., this uses the predicted values and square of predicted values to test whether the model is properly specified, the squared term should not be statistically significant) for logistic regression. 
 
 ### Examining the Region of Common Support
 
@@ -162,8 +162,7 @@ nels88_propscore %>%
   mutate(catholic = ifelse(catholic == 1, "Catholic", "Public")) %>%
   ggplot()+
   geom_histogram(aes(x=pr_score, y=..density.., fill=catholic), color="white", bins=30, position="identity", alpha=.3)+
-  geom_density(aes(x=pr_score, color=catholic))#+
-  facet_wrap(~catholic, ncol=1) #love this graphic to compare region of common support!
+  geom_density(aes(x=pr_score, color=catholic))
 ```
 
 ### Stratifying on the Propensities
@@ -197,8 +196,7 @@ do(nels88_5blocks, tidy(t.test(.$pr_score ~ .$catholic,
 >
 > The table above shows t-tests per block between propensity scores and treatment groups. Using a one-sided test where the expectation is a greater score, none of the differences are significant. This suggests balance. 
 >
-> Note: if I choose "less", I get different results. ?? Yes becuase it is the lower side of the one-sided t-test. You'd be testing whether the expectation is a lower score. 
-You may also want to check individual covariate balance, like you do below. 
+> Note: if you choose "less", you will get different results becuase it is the lower side of the one-sided t-test. You'd be testing whether the expectation is a lower score. You may also want to check individual covariate balance, as below. 
 
 #### Stratification into 5 blocks based on cut scores
 
@@ -293,19 +291,26 @@ nels88_ps <- matchit(catholic ~ I(inc8^2) + (inc8*math8) + fhowfar + mhowfar + f
 nels88_ps_sum <- summary(nels88_ps)
 
 #raw
-summary(abs(nels88_ps_sum$sum.matched$`Mean Diff`))
+#summary(abs(nels88_ps_sum$sum.matched$`Mean Diff`))
+```
 
-#standardized
+This table shows the maximum standardized mean difference in propensity scores ? between groups.
+
+```{r}
 summary(abs(summary(nels88_ps, standardize = T)$sum.matched$`Std. Mean Diff`))
+```
+> The results show Small differences between groups on the covariates.  (Max = .05).
 
-table(abs(summary(nels88_ps, standardize = T)$sum.matched$"Std. Mean Diff.") > 0.1) #Table says Max = .05, but this function says there are 11 cases with Std.Mean.Diff > .1
+
+```{r}
+table(abs(summary(nels88_ps, standardize = T)$sum.matched$"Std. Mean Diff.") > .1) #Table says Max = .05, but this function says there are 11 cases with Std.Mean.Diff > .1
 
 ```
-> What are we looking for here? Small differences between groups on the covariates. I prefer the standardized differences. These are all farily small (Max = .05). 
+> This table shows that only there are no differences greater than .1 (FALSE 11)
 
 #### Estimate Treatment Effects
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 #obtain matched data
 matched_data <- match.data(nels88_ps)
 
@@ -319,7 +324,7 @@ model.nels88 <- svyglm(math12~catholic + I(inc8^2) + (inc8*math8) + fhowfar + mh
 summary(model.nels88)
 ```
 
-> The ATT is 1.22 ? Yes, with propensity score matching we can typically only estimate the ATT since we don't typically include the entire sample (see all the unmatched control group cases in the figure below). Weighting by the inverse of the propensity score then running the analysis is one way to get the ATE. You can also get ATE from statification. 
+> Because of unmatched controls (4,546; see `summary(nels88_ps)`), we can typically only estimate the ATT since we don't typically include the entire sample. Weighting by the inverse of the propensity score then running the analysis is one way to get the ATE. You can also get ATE from stratification. 
 
 
 ### Another MatchIt Method 
@@ -355,54 +360,78 @@ t.test(outcomes$treatment, outcomes$control, paired = T) %>%
   apa("Outcome Analysis")
 
 ```
-> Is .93 the correct estimate? ATE? ATT? It is very low compared to book. I believe it would be the ATT. While it is lower than what's found in the book, check out the UCLA site, they get estimates this low. One thing we'd want to do is assess the robustness of these results by altering parameters of the matching algorithm (e.g., adding a caliper, altering the values of the caliper .2 to .15, matching with and without replacement, ratio matching 1:5) or by choosing a different matching algorithm (e.g., optimal matching, full matching). These type of tests help demonstrate that results do not depend on the particular matching method chosen.
+> .93 is the ATT. It is lower than what's found in the *Methods Matter*, but it also uses a slightly different method. One thing we'd want to do is assess the robustness of these results by altering parameters of the matching algorithm (e.g., adding a caliper, altering the values of the caliper .2 to .15, matching with and without replacement, ratio matching 1:5) or by choosing a different matching algorithm (e.g., optimal matching, full matching). These type of tests help demonstrate that results do not depend on the particular matching method chosen.
 
-nels88_matched_data <- match.data(nels88_ps)
-
-### Using PS Match
-
-https://rstudio-pubs-static.s3.amazonaws.com/3473_aec63a6fb6f7437faf2f583233716b92.html
+### Stratification with MatchIt
 
 ```{r}
-# `nonrandom` is not available for R 4.0. You must install like this:
-#install.packages(https://cran.r-project.org/src/contrib/Archive/nonrandom/nonrandom_1.42.tar.gz, repos=NULL, type="source")
 
-library(nonrandom)
+formula <- formula("catholic ~ I(inc8^2) + (inc8*math8) + fhowfar + mhowfar + fight8 + nohw8 + disrupt8 + riskdrop8")
 
-## Propensity score estimation (pscore object returned)
-nels88_psmatch <- pscore(formula  = catholic ~ I(inc8^2) + (inc8*math8) + fhowfar + mhowfar + fight8 + nohw8 + disrupt8 + riskdrop8,
-                        data        = nels88,
-                        family      = "binomial",
-                        name.pscore = "ps")
+nels_stratified <- matchit(formula, #formula
+                          distance=nels88_propscore$pr_score,
+                          data = nels88_propscore, #data
+                          method = "subclass", #statifying method
+                          sub.by = "treat",
+                          subclass=5) # quintiles
 
-
-```
-
-#### Actual Propensity score matching
-
-> Note following code gives error: 
-
-```
-Error in ps.match.pscore(object = nels88_psmatch, control.matched.by = matched.by,  : 
-  Who was treated? Define argument 'who.treated'.
-```
+data.stratification <- match.data(nels_stratified) %>%
+  mutate(catholic = factor(catholic, labels=c("Public", "Catholic")))
   
-```{r eval=FALSE, include=FALSE}
-nels88_psmatch_results <- ps.match(object = nels88_psmatch,
-                 control.matched.by = matched.by,
-                 who.treated = 1, # value 1 is treated
-                 name.match.index   = "match.index",
-                 ratio              = 1, # default 1:1 match
-                 caliper            = "logit",
-                 x                  = 0.2,
-                 givenTmatchingC    = TRUE,
-                 bestmatch.first    = TRUE,
-                 setseed            = FALSE,
-                 combine.output     = TRUE)
+data.stratification %>%
+  janitor::tabyl(catholic, subclass)
 ```
 
+#### Covariate Balance Evaluation
 
-## Impact Evaluation, Chapter 8
+```{r}
+balance.stratification <- summary(nels_stratified, standardize=T)
 
+# the following extracts only the standardized mean differences for all strata
+balance.stratification$q.table[,3,] %>%
+  as.data.frame() %>%
+  pivot_longer("Subclass 1":"Subclass 5", names_to = "strata", values_to="mean_diff") %>%
+  group_by(strata) %>%
+  summarize(min = min(mean_diff),
+            mean =mean(mean_diff),
+            max= max(mean_diff))
+```
 
+> Two stratas have greater than .1 and 1 has greater than .25. This is OK, but not great.
 
+#### Estimating Treatment Weights
+
+```{r}
+weights <- data.stratification %>%
+  janitor::tabyl(catholic, subclass) %>%
+  pivot_longer(`1`:`5`, names_to = "strat", values_to = "n") %>%
+  pivot_wider(names_from = catholic, values_from=n) %>%
+  mutate(strat_sum = Public + Catholic,
+         total_treated = sum(Catholic),
+         total_n = sum(strat_sum),
+         ATE_wk = strat_sum/total_n,
+         ATT_wk = Catholic/total_treated)
+```
+
+#### Obtaining Estimates
+
+```{r}
+design <- svydesign(ids=~0, data=data.stratification)
+
+#Robust SE through bootstrapping
+
+surveyDesignBoot <- as.svrepdesign(design, type=c("bootstrap"),replicates=1000)
+
+#obtain means and standard errors by stratum and treatment group combinations
+subclassMeans <- svyby(formula=~math12, 
+                        by=~catholic+subclass,
+                        design=surveyDesignBoot,
+                        FUN=svymean,
+                       covmat=TRUE)
+
+pooledEffects <- svycontrast(subclassMeans, list(
+    ATE=c(rbind(-weights$ATE_wk, weights$ATE_wk)),
+    ATT=c(rbind(-weights$ATT_wk, weights$ATT_wk))))
+```
+
+> Interpretation?
