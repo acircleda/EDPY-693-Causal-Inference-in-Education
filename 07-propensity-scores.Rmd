@@ -278,7 +278,7 @@ nels88_ps <- matchit(catholic ~ I(inc8^2) + (inc8*math8) + fhowfar + mhowfar + f
                          data=nels88,
                          method="nearest", #nearest neighbors
                          replace=T, #with replacement
-                        ratio=1) #one to one matching
+                        ratio=1) #one to one matching - each treated with one control
                     
                     #A user may want to consider adding a caliper option to only select cases within a certain range, caliper = .2
        
@@ -364,20 +364,25 @@ t.test(outcomes$treatment, outcomes$control, paired = T) %>%
 
 ### Stratification with MatchIt
 
+Based on *Practical Propensity Score Methods Using R* (Leite, 2019)
+
 ```{r}
 
 formula <- formula("catholic ~ I(inc8^2) + (inc8*math8) + fhowfar + mhowfar + fight8 + nohw8 + disrupt8 + riskdrop8")
 
+# make the subclasses
 nels_stratified <- matchit(formula, #formula
-                          distance=nels88_propscore$pr_score,
+                          distance=nels88_propscore$pr_score, #propensity scores
                           data = nels88_propscore, #data
                           method = "subclass", #statifying method
                           sub.by = "treat",
                           subclass=5) # quintiles
 
+# get the matched data
 data.stratification <- match.data(nels_stratified) %>%
   mutate(catholic = factor(catholic, labels=c("Public", "Catholic")))
   
+#preview
 data.stratification %>%
   janitor::tabyl(catholic, subclass)
 ```
@@ -385,6 +390,7 @@ data.stratification %>%
 #### Covariate Balance Evaluation
 
 ```{r}
+# obtain standardize mean differences
 balance.stratification <- summary(nels_stratified, standardize=T)
 
 # the following extracts only the standardized mean differences for all strata
@@ -393,15 +399,36 @@ balance.stratification$q.table[,3,] %>%
   pivot_longer("Subclass 1":"Subclass 5", names_to = "strata", values_to="mean_diff") %>%
   group_by(strata) %>%
   summarize(min = min(mean_diff),
-            mean =mean(mean_diff),
-            max= max(mean_diff))
+            mean = mean(mean_diff),
+            max = max(mean_diff))
 ```
 
 > Two stratas have greater than .1 and 1 has greater than .25. This is OK, but not great.
 
-#### Estimating Treatment Weights
+#### Obtaining ATE and ATE Estimates
 
 ```{r}
+design <- svydesign(ids=~0, 
+                    weights=~weights,
+                    data=data.stratification)
+
+# Robust SE through bootstrapping
+# Good for when not known or easy formula
+
+set.seed(2020)
+
+surveyDesignBoot <- as.svrepdesign(design, type=c("bootstrap"),replicates=1000)
+
+#obtain means and standard errors by stratum and treatment group combinations
+
+subclassMeans <- svyby(formula=~math12, 
+                        by=~catholic+subclass,
+                        design=surveyDesignBoot,
+                        FUN=svymean,
+                       covmat=TRUE)
+
+# get weights for estimation
+
 weights <- data.stratification %>%
   janitor::tabyl(catholic, subclass) %>%
   pivot_longer(`1`:`5`, names_to = "strat", values_to = "n") %>%
@@ -411,27 +438,13 @@ weights <- data.stratification %>%
          total_n = sum(strat_sum),
          ATE_wk = strat_sum/total_n,
          ATT_wk = Catholic/total_treated)
-```
 
-#### Obtaining Estimates
-
-```{r}
-design <- svydesign(ids=~0, data=data.stratification)
-
-#Robust SE through bootstrapping
-
-surveyDesignBoot <- as.svrepdesign(design, type=c("bootstrap"),replicates=1000)
-
-#obtain means and standard errors by stratum and treatment group combinations
-subclassMeans <- svyby(formula=~math12, 
-                        by=~catholic+subclass,
-                        design=surveyDesignBoot,
-                        FUN=svymean,
-                       covmat=TRUE)
-
+# estimation via linear/nonlinear contrasts
 pooledEffects <- svycontrast(subclassMeans, list(
     ATE=c(rbind(-weights$ATE_wk, weights$ATE_wk)),
     ATT=c(rbind(-weights$ATT_wk, weights$ATT_wk))))
+
+pooledEffects
 ```
 
-> Interpretation?
+> Is it significant?

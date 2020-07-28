@@ -37,14 +37,14 @@ sssb <- read_dta("data/methods_matter/ch8_dynarski.dta") %>%
  
 **Variables**:
 
-  * id: individual ID?
-  * hhid: ?
-  * wt88: sampling weights
-  * coll: enrolled full-time in college by age 23 (1=yes | 0=no)
-  * hgc23: highest grade completed by age 23 (10-19)
-  * yearsr: year in which a senior
-  * fatherdec: father deceased by age 18 (1=yes | 0=no)
-  * offer: senior in year SSSB support available (1=yes | 0=no)
+  * *id*: individual ID?
+  * *hhid*: ?
+  * *wt88*: sampling weights
+  * *coll*: enrolled full-time in college by age 23 (1=yes | 0=no)
+  * *hgc23*: highest grade completed by age 23 (10-19)
+  * *yearsr*: year in which a senior
+  * *fatherdec*: father deceased by age 18 (1=yes | 0=no)
+  * *offer*: senior in year SSSB support available (1=yes | 0=no)
 
 ### Survey Data and Weights
 
@@ -119,6 +119,7 @@ srvy_data %>%
   summarize(means = survey_mean(coll)) %>%
   apa("Direct Estimate shown in Table 8.1 on page 143 using srvyr")
 ```
+
 #### Estimate first difference by t-test
 
 
@@ -140,7 +141,7 @@ svyttest(coll~offer, direct_subset) %>%
 #### Estimate t-test by hand
 
 ```{r}
-# calculate t value from rable above
+# calculate t value from table above
 (0.5604556-0.3522178)/sqrt(0.05274389^2 + 0.08124455^2)
 
 # p-value from one-sided test

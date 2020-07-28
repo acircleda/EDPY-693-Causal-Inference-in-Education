@@ -9,10 +9,10 @@ The data examines a subset of African-American students from the 1997 New York S
 
 **Variables**:
 
-  * s_id: id number
-  * voucher: recieved a voucher (1=yes, 0=no)
-  * pre_ach: reading achievement score before getting a voucher
-  * post_ach: reading achivemenet score at year 3
+  * *s_id*: id number
+  * *voucher*: recieved a voucher (1=yes, 0=no)
+  * *pre_ach*: reading achievement score before getting a voucher
+  * *post_ach*: reading achivemenet score at year 3
   
 
 ```{r message=FALSE, warning=FALSE}
@@ -22,6 +22,7 @@ library(haven)
 library(psych)
 library(apaTables)
 library(gt)
+source("data/apafunction.R") #to make APA-like tables with `gt`
 ```
 
 ```{r message=FALSE, warning=FALSE}
@@ -29,46 +30,14 @@ library(gt)
 nysp_vouchers <- read_dta("data/methods_matter/ch4_nyvoucher.dta")
 ```
 
-```{r message=FALSE, warning=FALSE}
-# function to make apa tables
-apa <- function(x) {
-  gt(x) %>%
-  tab_options(
-    table.border.bottom.width = 3,
-    table.border.bottom.color = "black",
-    column_labels.border.top.color = "black",
-        column_labels.border.bottom.color = "black",
-    table.width = pct(100),
-    table.background.color = "white"
-  ) %>%
-  cols_align(align="center") %>%
-  tab_style(
-    style = list(
-      cell_borders(
-        sides = c("top", "bottom"),
-        color = "white",
-        weight = px(1)
-      ),
-      cell_text(
-        align="center"
-      ),
-      cell_fill(color = "white", alpha = NULL)
-      ),
-    locations = cells_body(
-      columns = everything(),
-      rows = everything()
-    )
-  )
-}
 
-```
 
 ## Descriptive Statistics
 
 ```{r message=FALSE, warning=FALSE}
 describe(nysp_vouchers) %>%
   as.data.frame() %>%
-    rownames_to_column() %>%
+    rownames_to_column("variable") %>%
   mutate(across(is.numeric, round, 3)) %>%
   select(-mad, -min, -max, -range, -trimmed) %>%
   apa()
@@ -112,8 +81,11 @@ rbind(desc, diff_data) %>%
 
 ```
 
+## Analyses
 
-## T-Test
+The following are three different  analyses of the impact of voucher receipt (VOUCHER) on the third-grade academic achievement (POST_ACH) for a subsample of 521 African-American children randomly assigned to either a “voucher” treatment or a “no voucher” control group ( n = 521)
+
+### T-Test
 
 (Strategy 1, Table 4.1, pg. 49)
 
@@ -133,7 +105,7 @@ broom::tidy(mm4_t) %>%
 > 
 > Students who recieved an offer of a voucher had significantly higher achivement scores.
 
-## Simple Linear Regression 
+### Simple Linear Regression 
 
 (Strategy 2, Table 4.1, pg 49)
 
@@ -145,7 +117,7 @@ apa.reg.table(mm4_model1)[[3]] %>%
   apa()
 ```
 
-### Output for variances 
+#### Output for variances 
 
 ```{r}
 apa.aov.table(mm4_model1)[[3]] %>% 
@@ -156,7 +128,7 @@ apa.aov.table(mm4_model1)[[3]] %>%
 > 
 > Students who recieved an offer of a voucher had significantly higher achivement scores (4.9 points higher).
 
-## Multiple Linear Regression 
+### Multiple Linear Regression 
 
 (Strategy 3, Table 4.1, pg 49)
 
@@ -165,7 +137,7 @@ mm4_model2 <- lm(post_ach ~ voucher + pre_ach, data = nysp_vouchers)
 apa.reg.table(mm4_model2)[[3]] %>% apa()
 ```
 
-### Output for variances 
+#### Output for variances 
 
 ```{r}
 apa.aov.table(mm4_model2)[[3]] %>% apa()
