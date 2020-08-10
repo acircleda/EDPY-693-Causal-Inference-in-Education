@@ -156,6 +156,9 @@ modelsummary::msummary(list(
   "SEM" = iv,
   "Traditional" = iv.trad
 ))
+# SEM fit statistics aren't useful since the IV model is saturated model
+# lavInspect(iv, "r2")[1] #to get R-square value from lavaan model
+# summary(iv, rsquare=TRUE) #to print R-square values from lavaan model
 
 ```
 
